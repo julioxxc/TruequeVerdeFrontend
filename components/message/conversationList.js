@@ -28,14 +28,21 @@ const ConversationsList = () => {
     const fetchConversations = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        const response = await axios.get('https://truequeverde.aristoiz.com/api/conversations', {
+        const response = await axios.get('http://192.168.1.72:8000/api/conversations', {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
         });
-        setConversations(response.data);
+        // Normalizar la respuesta para garantizar un array (evita errores si la API devuelve
+        // { data: [...] } o un objeto inesperado).
+        const items = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        setConversations(items);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -97,7 +104,7 @@ const ConversationsList = () => {
     <FlatList
       data={conversations}
       renderItem={renderConversationItem}
-      keyExtractor={(item) => item.id.toString()}
+      keyExtractor={(item, index) => (item && item.id != null ? item.id.toString() : index.toString())}
       ListEmptyComponent={
         <Text style={styles.empty}>No hay conversaciones activas</Text>
       }

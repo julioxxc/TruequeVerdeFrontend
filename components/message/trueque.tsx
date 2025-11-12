@@ -32,7 +32,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({route}) => {
   const enviarFormulario = async () => {
     try {
         const response = await axios.post(
-          'http://truequeverde.aristoiz.com/api/barters',
+          'http://192.168.1.72:8000/api/barters',
           {
             post_id: postId,
             description: descripcion,

@@ -34,7 +34,7 @@ const HomeScreen = ({ navigation }) => {
     const fetchPosts = async () => {
       try {
         if (!user?.username) return;
-        const response = await api.get('https://truequeverde.aristoiz.com/api/profile/' + user.username);
+        const response = await api.get('http://192.168.1.72:8000/api/profile/' + user.username);
         setPosts(response.data.posts); // <-- ¡Aquí el cambio!
       } catch (error) {
         setPosts([]);
@@ -140,7 +140,7 @@ const HomeScreen = ({ navigation }) => {
               // Si la imagen ya es una URL completa, úsala. Si no, prepéndele la ruta base.
               const imageUrl = item.image?.startsWith('http')
                 ? item.image
-                : `https://truequeverde.aristoiz.com/storage/posts/${item.image}`;
+                : `http://192.168.1.72:8000/storage/posts/${item.image}`;
 
               return (
                 <View style={styles.postCard}>

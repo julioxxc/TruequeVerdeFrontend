@@ -41,7 +41,8 @@ const PublicProfileScreen = ({ route, navigation }) => {
       try {
         const response = await api.get(`/profile/${user.username}`);
         console.log('Posts cargados:', response.data); // <-- LOG
-        setPosts(response.data.posts); // <-- ¡Aquí el cambio!
+        // Asegurar que posts sea siempre un array para evitar errores al usar .length
+        setPosts(response.data.posts || []);
       } catch (error) {
         setPosts([]);
       } finally {
@@ -105,7 +106,7 @@ const PublicProfileScreen = ({ route, navigation }) => {
               // Si la imagen ya es una URL completa, úsala. Si no, prepéndele la ruta base.
               const imageUrl = item.image?.startsWith('http')
                 ? item.image
-                : `https://truequeverde.aristoiz.com/storage/posts/${item.image}`;
+                : `http://192.168.1.72:8000/storage/posts/${item.image}`;
 
               return (
                 <View style={styles.postCard}>

@@ -34,8 +34,16 @@ const App = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('https://truequeverde.aristoiz.com/api/posts');
-      setProducts(response.data);
+      const response = await axios.get('http://192.168.1.72:8000/api/posts');
+      // Asegurarnos de que `products` sea siempre un array.
+      // La API puede devolver un objeto con datos en una propiedad (p. ej. { data: [...] })
+      // o directamente un array. Normalizamos ambos casos.
+      const items = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+      setProducts(items);
     } catch (error) {
       console.error('Error al obtener productos:', error);
     } finally {
@@ -65,8 +73,10 @@ const App = () => {
     setModalVisible(true);
   };
 
-  const filteredProducts = products.filter((item) => {
-    const titleMatch = item.title.toLowerCase().includes(search.toLowerCase());
+  // Proteger `products` por si no es un array (evita "products.filter is not a function").
+  const safeProducts = Array.isArray(products) ? products : [];
+  const filteredProducts = safeProducts.filter((item) => {
+    const titleMatch = item.title?.toLowerCase().includes(search.toLowerCase());
     const categoryMatch =
       !selectedCategory || item.category?.name?.toLowerCase() === selectedCategory;
     return titleMatch && categoryMatch;

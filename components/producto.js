@@ -61,7 +61,7 @@ const Producto = ({ producto, onClose, navigation }) => {
 
       // 1) Crear/conseguir la conversación
       const respConvo = await axios.post(
-        'https://truequeverde.aristoiz.com/api/conversations',
+        'http://192.168.1.72:8000/api/conversations',
         {
           request_user_id: interestedId,
           offer_user_id: ownerId,
@@ -80,7 +80,7 @@ const Producto = ({ producto, onClose, navigation }) => {
 
       // 2) Enviar el mensaje inicial
       await axios.post(
-        `https://truequeverde.aristoiz.com/api/conversations/${conversationId}/messages`,
+        `http://192.168.1.72:8000/api/conversations/${conversationId}/messages`,
         { content: mensaje.trim() },
         {
           headers: {

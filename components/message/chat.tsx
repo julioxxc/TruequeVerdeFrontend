@@ -38,7 +38,7 @@ export default function Chat({ route, navigation }: Props) {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `https://truequeverde.aristoiz.com/api/conversations/${conversationId}`,
+        `http://192.168.1.72:8000/api/conversations/${conversationId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -59,7 +59,7 @@ export default function Chat({ route, navigation }: Props) {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `https://truequeverde.aristoiz.com/api/conversations/${conversationId}/messages`,
+        `http://192.168.1.72:8000/api/conversations/${conversationId}/messages`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -83,7 +83,7 @@ export default function Chat({ route, navigation }: Props) {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `https://truequeverde.aristoiz.com/api/conversations/${conversationId}/messages`,
+        `http://192.168.1.72:8000/api/conversations/${conversationId}/messages`,
         {
           method: 'POST',
           headers: {

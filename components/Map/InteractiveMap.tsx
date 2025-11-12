@@ -90,7 +90,7 @@ export default function MapScreen() {
 
   const fetchGreenpoints = async () => {
     try {
-      const response = await fetch('https://truequeverde.aristoiz.com/api/map/all');
+      const response = await fetch('http://192.168.1.72:8000/api/map/all');
       const data = await response.json();
 
       // Redondear coordenadas en posts
