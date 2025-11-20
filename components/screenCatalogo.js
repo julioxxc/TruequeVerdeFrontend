@@ -81,7 +81,21 @@ const App = ({ route }) => {
   const toggleFilter = () => setFilterVisible(!filterVisible);
 
   const handleCategorySelect = (category) => {
-    setSelectedCategory(category === 'Todos' ? null : category.toLowerCase());
+    const normalized = category === 'Todos' ? null : category.toLowerCase();
+    setSelectedCategory(normalized);
+
+    // Log current filter selection with its id (if the backend provided one)
+    const currentProducts = Array.isArray(products) ? products : [];
+    if (normalized) {
+      const match = currentProducts.find(
+        (item) => item?.category?.name?.toLowerCase() === normalized
+      );
+      const categoryId = match?.category?.id ?? 'sin id';
+      console.log(`Filtro categoría: ${category} (id: ${categoryId})`);
+    } else {
+      console.log('Filtro categoría: Todos (sin categoría seleccionada)');
+    }
+
     setFilterVisible(false);
   };
 
@@ -92,10 +106,27 @@ const App = ({ route }) => {
 
   // Proteger `products` por si no es un array (evita "products.filter is not a function").
   const safeProducts = Array.isArray(products) ? products : [];
+
+  // Normaliza la categor?a con los campos que pueda traer el backend.
+  const normalizeCategory = (item) => {
+    const name =
+      item.category?.name ||
+      item.category_name ||
+      item.category ||
+      item.item?.category?.name ||
+      item.item?.category_name;
+
+    if (name) return name.toLowerCase();
+
+    const categoryId = item.category_id || item.item?.category_id;
+    const map = { 1: 'verdura', 2: 'fruta', 3: 'semilla', 4: 'brote', 5: 'planta' };
+    return map[categoryId] || '';
+  };
+
   const filteredProducts = safeProducts.filter((item) => {
-    const titleMatch = item.title?.toLowerCase().includes(search.toLowerCase());
-    const categoryMatch =
-      !selectedCategory || item.category?.name?.toLowerCase() === selectedCategory;
+    const title = (item.title || '').toLowerCase();
+    const titleMatch = title.includes(search.toLowerCase());
+    const categoryMatch = !selectedCategory || normalizeCategory(item) === selectedCategory;
     return titleMatch && categoryMatch;
   });
 
@@ -177,7 +208,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   filterButton: { backgroundColor: '#66aa4f', padding: 12, borderRadius: 15, marginLeft: 10 },
-  listContainer: { paddingBottom: 20, justifyContent: 'center' },
+  // Extra bottom space so cards can scroll above the bottom nav without being hidden
+  listContainer: { paddingBottom: 60, justifyContent: 'center' },
   card: {
     backgroundColor: '#fff',
     borderRadius: 15,
