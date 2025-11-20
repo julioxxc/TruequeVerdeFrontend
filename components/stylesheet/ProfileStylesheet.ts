@@ -153,7 +153,7 @@ const ProfileStylesheet = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     elevation: 0,
-    marginBottom: 30,
+    marginBottom: 80, // Extra espacio antes del botón de cerrar sesión
   },
   tokenLabel: {
     fontSize: 12,

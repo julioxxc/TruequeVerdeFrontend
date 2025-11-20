@@ -109,7 +109,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={{ alignItems: 'center', marginBottom: 20 }}>
           {location ? (
             <MapView
-              style={styles.map}
+              style={styles.map , { width: '90%', height: 200, borderRadius: 12 }}
               initialRegion={{
                 latitude: location.latitude,
                 longitude: location.longitude,
