@@ -137,11 +137,7 @@ const PublicProfileScreen = ({ route, navigation }) => {
                 { opacity: optionsAnimation, transform: [{ translateY: optionsTranslateY }] },
               ]}
             >
-              <TouchableOpacity style={styles.optionsItem} onPress={handleSendMessage}>
-                <Icon name="message-text-outline" size={20} color="#14532d" style={styles.optionsIcon} />
-                <Text style={styles.optionsItemText}>Enviar mensaje</Text>
-              </TouchableOpacity>
-              <View style={styles.optionsDivider} />
+            
               <TouchableOpacity style={styles.optionsItem} onPress={handleReportUser}>
                 <Icon name="alert-circle-outline" size={20} color="#b91c1c" style={styles.optionsIcon} />
                 <Text style={[styles.optionsItemText, { color: '#b91c1c' }]}>Reportar usuario</Text>
