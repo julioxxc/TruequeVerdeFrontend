@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Animated } from 'react-native';
-import { ArrowLeft, User, Plus, Send, MapPin } from 'lucide-react-native';
 import { Image } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +9,7 @@ type RootStackParamList = {
   Chat: { conversationId: number };
   BarterScreen: { conversationId: number; postId: number };
   PublicProfile: { userId: number }; // prueba de navegación al perfil público
+  Home: { screen: 'CatalogoMain'; params?: { openPostId?: number } };
 };
 
 type Conversation = {
@@ -138,21 +138,22 @@ export default function Chat({ route, navigation }: Props) {
   }, []);
 
   const isOfferUser =
-    user?.id !== undefined && conversation !== null && user.id === conversation.offer_user_id;
+    user?.id !== undefined && 
+    conversation !== null && 
+    conversation.post_id !== undefined &&
+    user.id === conversation.offer_user_id;
 
   return (
     <View className="bg-gray-190 flex-1">
       {/* Encabezado */}
       <View className="p-4">
         <View className="flex-row items-center rounded-3xl bg-green-800 p-4 shadow-lg">
-          <TouchableOpacity className="p-2">
-            <TouchableOpacity className="p-2">
-              <Image
-                source={require('../../assets/back-icon.png')}
-                className="h-6 w-6"
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+          <TouchableOpacity className="p-2" onPress={() => navigation.goBack()}>
+            <Image
+              source={require('../../assets/back-icon.png')}
+              className="h-6 w-6"
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <View className="ml-4 flex-1 flex-row items-center rounded-xl p-2">
             <TouchableOpacity
@@ -197,12 +198,14 @@ export default function Chat({ route, navigation }: Props) {
           {isOfferUser && (
             <View className="rounded-full bg-white p-3 shadow-lg">
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('BarterScreen', {
-                    conversationId,
-                    postId: conversation.post_id,
-                  })
-                }
+                onPress={() => {
+                  if (conversation && conversation.post_id) {
+                    navigation.navigate('BarterScreen', {
+                      conversationId,
+                      postId: conversation.post_id,
+                    });
+                  }
+                }}
                 className="flex-row items-center p-2 ">
                 <Image
                   source={require('../../assets/form-icon.png')}
@@ -213,6 +216,31 @@ export default function Chat({ route, navigation }: Props) {
                   className="ml-4 text-lg font-extrabold text-black"
                   style={{ fontFamily: 'Poppins-Black' }}>
                   Solicitar intercambio
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!isOfferUser && conversation && conversation.post_id && (
+            <View className="rounded-full bg-white p-3 shadow-lg">
+              <TouchableOpacity
+                onPress={() => {
+                  navigation.navigate('Home', {
+                    screen: 'CatalogoMain',
+                    params: { openPostId: conversation.post_id },
+                  });
+                  setMenuVisible(false);
+                }}
+                className="flex-row items-center p-2 ">
+                <Image
+                  source={require('../../assets/form-icon.png')}
+                  className="h-6 w-6"
+                  resizeMode="contain"
+                />
+                <Text
+                  className="ml-4 text-lg font-extrabold text-black"
+                  style={{ fontFamily: 'Poppins-Black' }}>
+                  Ver publicación
                 </Text>
               </TouchableOpacity>
             </View>

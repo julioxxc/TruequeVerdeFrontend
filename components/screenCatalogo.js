@@ -15,7 +15,7 @@ import Producto from './producto';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 
-const App = () => {
+const App = ({ route }) => {
   const [search, setSearch] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -60,6 +60,23 @@ const App = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Si la navegación pasa un openPostId, abrir el modal del producto correspondiente
+  useEffect(() => {
+    const openId = route?.params?.openPostId;
+    if (openId && products && products.length) {
+      const found = products.find((p) => p.id === openId || p.id == openId);
+      if (found) {
+        openProductModal(found);
+        // Limpiar el parámetro para no reabrir constantemente
+        try {
+          navigation.setParams({ openPostId: null });
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, [route?.params, products]);
 
   const toggleFilter = () => setFilterVisible(!filterVisible);
 

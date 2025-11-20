@@ -10,6 +10,8 @@ import {
   ScrollView,
   Image,
   TextInput,
+  Modal,
+  useColorScheme,
 } from 'react-native';
 import MapView, { Marker, Region, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -18,6 +20,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 
 import { Picker } from '@react-native-picker/picker';
+import { useNavigation } from '@react-navigation/native';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -65,6 +68,9 @@ export default function MapScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMarker, setSelectedMarker] = useState<any>(null);
+  const navigation = useNavigation();
+  const colorScheme = useColorScheme();
 
   const getLocation = async () => {
     setLoading(true);
@@ -107,6 +113,7 @@ export default function MapScreen() {
         latitude: roundCoord(point.latitude),
         longitude: roundCoord(point.longitude),
       }));
+      console.log('Greenpoints redondeados:', greenpointsRounded);
 
       setPosts(postsRounded);
       setGreenpoints(greenpointsRounded);
@@ -286,13 +293,12 @@ export default function MapScreen() {
                 latitude: parseFloat(point.latitude),
                 longitude: parseFloat(point.longitude),
               }}
-              pinColor="green">
-              <Callout>
-                <View>
-                  <Text>{`Punto Verde #${point.id}`}</Text>
-                </View>
-              </Callout>
-            </Marker>
+              pinColor="green"
+              onPress={() => {
+                console.log('Punto verde seleccionado:', point);
+                setSelectedMarker({ ...point, type: 'greenpoint' });
+              }}
+            />
           ))}
 
         {filterType !== 'greenpoints' &&
@@ -303,16 +309,19 @@ export default function MapScreen() {
                 latitude: parseFloat(post.latitude),
                 longitude: parseFloat(post.longitude),
               }}
-              image={getCategoryIcon(post.category_name)}>
-              <Callout>
-                <View>
-                  <Text>{post.title}</Text>
-                  <Text>{post.content}</Text>
-                  <Text style={{ fontStyle: 'italic', marginTop: 4 }}>
-                    Categoría: {capitalizeFirstLetter(post.category_name)}
-                  </Text>
-                </View>
-              </Callout>
+              onPress={() => setSelectedMarker({ ...post, type: 'post' })}
+            >
+              <View style={{ 
+                backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 'transparent',
+                borderRadius: 15,
+                padding: 4,
+                elevation: 3
+              }}>
+                <Image
+                  source={getCategoryIcon(post.category_name)}
+                  style={{ width: 22, height: 22 }}
+                />
+              </View>
             </Marker>
           ))}
       </MapView>
@@ -320,6 +329,58 @@ export default function MapScreen() {
       <View style={styles.buttonContainer}>
         <Button title="Actualizar ubicación" onPress={getLocation} color="#006400" />
       </View>
+
+      {/* Modal personalizado para mostrar info del marcador */}
+      <Modal visible={!!selectedMarker} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSelectedMarker(null)}>
+          <View style={styles.markerInfoBox}>
+            {selectedMarker?.type === 'greenpoint' ? (
+              <>
+                <Text style={styles.markerInfoTitle}>
+                  {selectedMarker?.name ? selectedMarker.name : `Punto Verde #${selectedMarker?.id}`}
+                </Text>
+                {selectedMarker?.description && (
+                  <Text style={styles.markerInfoText}>
+                    <Text style={{ fontWeight: 'bold' }}>Descripción:</Text> {selectedMarker.description}
+                  </Text>
+                )}
+                <Text style={styles.markerInfoText}>
+                  <Text style={{ fontWeight: 'bold' }}>ID:</Text> {selectedMarker?.id}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.markerInfoTitle}>{selectedMarker?.title}</Text>
+                <Text style={styles.markerInfoText}>
+                  <Text style={{ fontWeight: 'bold' }}>Cambio por:</Text> {selectedMarker?.content}
+                </Text>
+                <Text style={styles.markerInfoText}>
+                  <Text style={{ fontWeight: 'bold' }}>Categoría:</Text> {capitalizeFirstLetter(selectedMarker?.category_name)}
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeModalButton}
+                  onPress={() => {
+                    // Navegar al catálogo y pasar el id para que abra la publicación
+                    // Navegación anidada: ir a la pestaña 'Home' y al screen 'CatalogoMain'
+                    navigation.navigate('Home', { screen: 'CatalogoMain', params: { openPostId: selectedMarker?.id } });
+                    setSelectedMarker(null);
+                  }}
+                >
+                  <Text style={styles.closeModalText}>Ver publicación</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity
+              style={styles.closeModalButton}
+              onPress={() => setSelectedMarker(null)}>
+              <Text style={styles.closeModalText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -386,5 +447,69 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 10 : 6,
     borderRadius: 8,
     fontSize: 16,
+  },
+  calloutContainer: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 10,
+    minWidth: 200,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  calloutTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#006400',
+    marginBottom: 4,
+  },
+  calloutText: {
+    fontSize: 12,
+    color: '#333',
+    marginBottom: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  markerInfoBox: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    maxWidth: '80%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  markerInfoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#006400',
+    marginBottom: 12,
+  },
+  markerInfoText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  closeModalButton: {
+    backgroundColor: '#006400',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  closeModalText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

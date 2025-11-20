@@ -69,11 +69,8 @@ export default function BottomTabNavigator() {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Image
                 source={require('../assets/images/logo.png')}
-                style={{ width: 45, height: 45, marginRight: 10 }}
+                style={{ width: 45, height: 45, marginRight: 0 }}
               />
-              <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>
-                Trueque Verde
-              </Text>
             </View>
           ),
           headerStyle: { backgroundColor: '#2c5a48' },

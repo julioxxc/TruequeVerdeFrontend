@@ -190,10 +190,8 @@ export default function LoginScreen() {
           disabled={isLoading}
           labelStyle={LoginStyles.buttonText}
         >
-          <Text>
-            {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-          </Text>
-      </Button>
+          {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+        </Button>
 
         <TouchableOpacity 
           onPress={() => !isLoading && navigation.navigate('Register')}
