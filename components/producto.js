@@ -165,7 +165,7 @@ const Producto = ({ producto, onClose, navigation }) => {
           </Text>
 
           {/* Descripción */}
-          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>DescripciÃ³n</Text>
+          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>Descripción</Text>
           <Text style={[styles.modalText, { fontFamily: 'Poppins-Regular' }]}>
             {producto.content}
           </Text>
@@ -188,13 +188,13 @@ const Producto = ({ producto, onClose, navigation }) => {
                 {producto.user.name} {producto.user.lastname}
               </Text>
               <Text style={[styles.userContact, { fontFamily: 'Poppins-Regular' }]}>
-                {producto.user.email} Â· {producto.user.phone}
+                {producto.user.email} · {producto.user.phone}
               </Text>
             </View>
           </View>
 
           {/* Ubicación */}
-          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>UbicaciÃ³n</Text>
+          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>Ubicación</Text>
           <Text style={[styles.locationDetail, { fontFamily: 'Poppins-Regular' }]}>
             Lat: {producto.latitude}, Lon: {producto.longitude}
           </Text>
