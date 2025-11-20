@@ -31,6 +31,14 @@ const App = ({ route }) => {
   });
 
   const categoryOptions = ['Todos', 'Frutas', 'Verduras', 'Semillas', 'Brotes', 'Plantas'];
+  const labelToKey = {
+    Todos: null,
+    Frutas: 'fruta',
+    Verduras: 'verdura',
+    Semillas: 'semilla',
+    Brotes: 'brote',
+    Plantas: 'planta',
+  };
 
   const fetchProducts = async () => {
     try {
@@ -80,18 +88,17 @@ const App = ({ route }) => {
 
   const toggleFilter = () => setFilterVisible(!filterVisible);
 
-  const handleCategorySelect = (category) => {
-    const normalized = category === 'Todos' ? null : category.toLowerCase();
+  const handleCategorySelect = (categoryLabel) => {
+    const normalized = categoryLabel in labelToKey ? labelToKey[categoryLabel] : null;
     setSelectedCategory(normalized);
 
     // Log current filter selection with its id (if the backend provided one)
     const currentProducts = Array.isArray(products) ? products : [];
     if (normalized) {
-      const match = currentProducts.find(
-        (item) => item?.category?.name?.toLowerCase() === normalized
-      );
-      const categoryId = match?.category?.id ?? 'sin id';
-      console.log(`Filtro categoría: ${category} (id: ${categoryId})`);
+      const match = currentProducts.find((item) => normalizeCategory(item) === normalized);
+      const categoryId =
+        match?.category?.id ?? match?.item?.category_id ?? match?.category_id ?? 'sin id';
+      console.log(`Filtro categoría: ${categoryLabel} (id: ${categoryId})`);
     } else {
       console.log('Filtro categoría: Todos (sin categoría seleccionada)');
     }
