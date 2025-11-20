@@ -30,12 +30,12 @@ const App = ({ route }) => {
     'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
   });
 
-  const categoryOptions = ['Todos', 'Frutas', 'Verduras', 'Semillas', 'Brotes', 'Plantas'];
+  const categoryOptions = ['Todos', 'Frutas', 'Verduras', 'Cereales y Tuberculos', 'Brotes', 'Plantas'];
   const labelToKey = {
     Todos: null,
     Frutas: 'fruta',
     Verduras: 'verdura',
-    Semillas: 'semilla',
+    "Cereales y Tuberculos": 'cereales y tuberculos',
     Brotes: 'brote',
     Plantas: 'planta',
   };
@@ -126,7 +126,7 @@ const App = ({ route }) => {
     if (name) return name.toLowerCase();
 
     const categoryId = item.category_id || item.item?.category_id;
-    const map = { 1: 'verdura', 2: 'fruta', 3: 'semilla', 4: 'brote', 5: 'planta' };
+    const map = { 1: 'fruta', 2: 'verdura', 3: 'cereales y tuberculos', 4: 'brote', 5: 'planta' };
     return map[categoryId] || '';
   };
 
@@ -181,7 +181,10 @@ const App = ({ route }) => {
               <Image source={{ uri: item.image }} style={styles.image} />
               <Text style={styles.productName}>{item.title}</Text>
               <Text style={styles.tradeText}>
-                Cambio por: <Text style={styles.tradeProduct}>{item.content}</Text>
+                Cambio por:{' '}
+                <Text style={styles.tradeProduct}>
+                  {item.cambiar_por || item.cambiarPor || 'No especificado'}
+                </Text>
               </Text>
             </TouchableOpacity>
           )}

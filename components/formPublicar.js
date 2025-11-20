@@ -291,7 +291,7 @@ const FormPublicar = () => {
             <Picker.Item label="Selecciona una categoría..." value="" />
             <Picker.Item label="Verdura" value="verdura" />
             <Picker.Item label="Fruta" value="fruta" />
-            <Picker.Item label="Semilla" value="semilla" />
+            <Picker.Item label="Cereales y Tuberculos" value="cereales y Tuberculos" />
             <Picker.Item label="Brote" value="brote" />
             <Picker.Item label="Planta" value="planta" />
           </Picker>
