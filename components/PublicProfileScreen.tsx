@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, FlatList, Animated, Alert } from 'react-native';
 import styles from 'components/stylesheet/ProfileStylesheet';
 import { Avatar } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -12,6 +12,13 @@ const PublicProfileScreen = ({ route, navigation }) => {
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [location, setLocation] = useState(null);
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const optionsAnimation = useState(new Animated.Value(0))[0];
+  const optionsTranslateY = optionsAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-10, 0],
+  });
+
 
   useEffect(() => {
     // Cargar datos del usuario
@@ -52,6 +59,43 @@ const PublicProfileScreen = ({ route, navigation }) => {
     fetchPosts();
   }, [user]);
 
+  const showOptionsMenu = () => {
+    setOptionsVisible(true);
+    Animated.timing(optionsAnimation, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const hideOptionsMenu = () => {
+    Animated.timing(optionsAnimation, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      setOptionsVisible(false);
+    });
+  };
+
+  const toggleOptionsMenu = () => {
+    if (optionsVisible) {
+      hideOptionsMenu();
+    } else {
+      showOptionsMenu();
+    }
+  };
+
+  const handleSendMessage = () => {
+    hideOptionsMenu();
+    navigation.navigate('Chat', { userId });
+  };
+
+  const handleReportUser = () => {
+    hideOptionsMenu();
+    console.log('Reportar usuario');
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -83,6 +127,27 @@ const PublicProfileScreen = ({ route, navigation }) => {
             <Text style={styles.name}>{user?.name} {user?.lastname}</Text>
             <Text style={styles.username}>@{user?.username}</Text>
           </View>
+          <TouchableOpacity style={styles.optionsButton} onPress={toggleOptionsMenu}>
+            <Icon name="dots-vertical" size={28} color="#fff" />
+          </TouchableOpacity>
+          {optionsVisible && (
+            <Animated.View
+              style={[
+                styles.optionsMenu,
+                { opacity: optionsAnimation, transform: [{ translateY: optionsTranslateY }] },
+              ]}
+            >
+              <TouchableOpacity style={styles.optionsItem} onPress={handleSendMessage}>
+                <Icon name="message-text-outline" size={20} color="#14532d" style={styles.optionsIcon} />
+                <Text style={styles.optionsItemText}>Enviar mensaje</Text>
+              </TouchableOpacity>
+              <View style={styles.optionsDivider} />
+              <TouchableOpacity style={styles.optionsItem} onPress={handleReportUser}>
+                <Icon name="alert-circle-outline" size={20} color="#b91c1c" style={styles.optionsIcon} />
+                <Text style={[styles.optionsItemText, { color: '#b91c1c' }]}>Reportar usuario</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
         </View>
 
         {/* Aqui puede ir la reputacion IDK */}
