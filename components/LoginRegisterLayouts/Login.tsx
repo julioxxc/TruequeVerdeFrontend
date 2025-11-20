@@ -33,12 +33,14 @@ export default function LoginScreen() {
     const checkTokenAndRedirect = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-          if (token) {
-            const isValid = await validateToken();
-            if (isValid) {
-              navigation.replace('Home', {
-              user: response.user,
-              token: response.token,
+        if (token) {
+          const isValid = await validateToken();
+          if (isValid) {
+            const storedUser = await AsyncStorage.getItem('userData');
+            const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+            navigation.replace('Home', {
+              user: parsedUser,
+              token: token,
             });
             return;
           }
@@ -94,17 +96,15 @@ export default function LoginScreen() {
 
       // Siempre guarda el usuario y token en contexto (memoria)
       await login(response.user, response.token);
-
-      // Solo guarda el token de forma persistente si "Recuérdame" está activado
+      // Siempre persiste el token y usuario; "Recuerdame" solo guarda el usuario para autocompletar
+      await AsyncStorage.setItem('userToken', response.token);
+      await AsyncStorage.setItem('userData', JSON.stringify(response.user));
       if (rememberMe) {
-        await AsyncStorage.setItem('userToken', response.token);
         await AsyncStorage.setItem('savedUsername', username);
         await AsyncStorage.setItem('rememberMe', 'true');
       } else {
-        // Limpia cualquier token persistente anterior
-        await AsyncStorage.removeItem('userToken');
         await AsyncStorage.removeItem('savedUsername');
-        await AsyncStorage.removeItem('rememberMe');
+        await AsyncStorage.setItem('rememberMe', 'false');
       }
 
       // Validar el token antes de redirigir
@@ -208,3 +208,4 @@ export default function LoginScreen() {
     </View>
   );
 }
+

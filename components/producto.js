@@ -9,18 +9,21 @@ import {
   FlatList,
   Dimensions,
   ScrollView,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import MapView, { Marker } from 'react-native-maps';
+import { useUser } from '../context/UserContext';
+import api from '../services/api';
 
 const screenWidth = Dimensions.get('window').width;
 
 const Producto = ({ producto, onClose, navigation }) => {
   const [mensaje, setMensaje] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { user, token: contextToken } = useUser();
 
   const [fontsLoaded] = useFonts({
     'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'),
@@ -53,16 +56,22 @@ const Producto = ({ producto, onClose, navigation }) => {
     if (!mensaje.trim()) return;
 
     try {
-      const userData = await AsyncStorage.getItem('user');
-      const token = await AsyncStorage.getItem('userToken');
-      const user = JSON.parse(userData);
-      const interestedId = user?.id;
+      const userData = await AsyncStorage.getItem('userData');
+      const parsedUser = userData ? JSON.parse(userData) : null;
+      const sessionUser = user || parsedUser;
+      const token = contextToken || (await AsyncStorage.getItem('userToken'));
+      const interestedId = sessionUser?.id;
       const ownerId = producto.user?.id;
       const postId = producto.id;
 
-      // 1) Crear/conseguir la conversación
-      const respConvo = await axios.post(
-        'http://192.168.1.72:8000/api/conversations',
+      if (!token || !interestedId) {
+        Alert.alert('Sesion', 'Inicia sesion nuevamente para enviar mensajes.');
+        return;
+      }
+
+      // 1) Crear/conseguir la conversacion
+      const respConvo = await api.post(
+        '/conversations',
         {
           request_user_id: interestedId,
           offer_user_id: ownerId,
@@ -72,31 +81,28 @@ const Producto = ({ producto, onClose, navigation }) => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
           },
         }
       );
       const conversationId = respConvo.data.id;
 
       // 2) Enviar el mensaje inicial
-      await axios.post(
-        `http://192.168.1.72:8000/api/conversations/${conversationId}/messages`,
+      await api.post(
+        `/conversations/${conversationId}/messages`,
         { content: mensaje.trim() },
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
           },
         }
       );
 
       // 3) Cierra el modal y navega al chat
+      setMensaje('');
       onClose();
       navigation.navigate('Chat', { conversationId });
     } catch (error) {
-      console.error('Error al crear la conversaciÃ³n o enviar mensaje:', error);
+      console.error('Error al crear la conversacion o enviar mensaje:', error);
       Alert.alert('Error', 'No se pudo iniciar el chat. Intenta de nuevo.');
     }
   };

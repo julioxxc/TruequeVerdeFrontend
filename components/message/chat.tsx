@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { Image } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from 'context/UserContext';
 
@@ -104,6 +105,7 @@ export default function Chat({ route, navigation }: Props) {
           isMe: true,
         },
       ]);
+      fetchMessages(conversationId);
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }
@@ -130,12 +132,14 @@ export default function Chat({ route, navigation }: Props) {
     outputRange: [50, 0],
   });
 
-  useEffect(() => {
-    fetchConversation(conversationId);
-    fetchMessages(conversationId);
-    const interval = setInterval(() => fetchMessages(conversationId), 1000);
-    return () => clearInterval(interval);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchConversation(conversationId);
+      fetchMessages(conversationId);
+      const interval = setInterval(() => fetchMessages(conversationId), 2000);
+      return () => clearInterval(interval);
+    }, [conversationId])
+  );
 
   const isOfferUser =
     user?.id !== undefined && 
@@ -184,7 +188,7 @@ export default function Chat({ route, navigation }: Props) {
         {messages.map((message) => (
           <View
             key={message.id}
-            className={`mb-2 max-w-[70%] rounded-xl p-3 ${message.isMe ? 'self-end rounded-br-none bg-green-500' : 'self-start rounded-bl-none bg-gray-300'}`}>
+            className={`mb-2 max-w-[70%] rounded-xl p-3 ${message.isMe ? 'self-end rounded-br-none bg-green-500' : 'self-start rounded-bl-none bg-gray-500'}`}>
             <Text className="text-white">{message.text}</Text>
           </View>
         ))}
@@ -193,8 +197,11 @@ export default function Chat({ route, navigation }: Props) {
       {/* Menú emergente */}
       {menuVisible && (
         <Animated.View
-          style={{ transform: [{ translateY: menuTranslateY }] }}
-          className="w-58 absolute bottom-20 p-6">
+          style={[
+            { transform: [{ translateY: menuTranslateY }] },
+            { bottom: 100 }, // eleva el menú emergente por encima de la barra de mensaje
+          ]}
+          className="w-58 absolute p-6">
           {isOfferUser && (
             <View className="rounded-full bg-white p-3 shadow-lg">
               <TouchableOpacity
