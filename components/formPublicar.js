@@ -224,7 +224,7 @@ const FormPublicar = () => {
           disabled={isSubmitting || !user}>
           <Text style={styles.submitText}>{isSubmitting ? 'Publicando...' : 'Publicar'}</Text>
         </TouchableOpacity>
-        <View style={{ height: 60 }} />{' '}
+        <View style={{ height: 60 }} />
         {/*Espacio en blanco para que boton de publicar no quede debajo de navigator*/}
       </ScrollView>
     </View>

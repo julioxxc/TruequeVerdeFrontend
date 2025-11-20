@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import MapView, { Marker } from 'react-native-maps';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -95,7 +96,7 @@ const Producto = ({ producto, onClose, navigation }) => {
       onClose();
       navigation.navigate('Chat', { conversationId });
     } catch (error) {
-      console.error('Error al crear la conversación o enviar mensaje:', error);
+      console.error('Error al crear la conversaciÃ³n o enviar mensaje:', error);
       Alert.alert('Error', 'No se pudo iniciar el chat. Intenta de nuevo.');
     }
   };
@@ -103,7 +104,7 @@ const Producto = ({ producto, onClose, navigation }) => {
   return (
     <View style={styles.modalContainer}>
       <View style={styles.modalContent}>
-        {/* Header con botón de cierre y título */}
+        {/* Header con botón de cierre y tí­tulo */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Icon name="times" size={24} color="#fff" />
@@ -164,7 +165,7 @@ const Producto = ({ producto, onClose, navigation }) => {
           </Text>
 
           {/* Descripción */}
-          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>Descripción</Text>
+          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>DescripciÃ³n</Text>
           <Text style={[styles.modalText, { fontFamily: 'Poppins-Regular' }]}>
             {producto.content}
           </Text>
@@ -187,17 +188,35 @@ const Producto = ({ producto, onClose, navigation }) => {
                 {producto.user.name} {producto.user.lastname}
               </Text>
               <Text style={[styles.userContact, { fontFamily: 'Poppins-Regular' }]}>
-                {producto.user.email} · {producto.user.phone}
+                {producto.user.email} Â· {producto.user.phone}
               </Text>
             </View>
           </View>
 
           {/* Ubicación */}
-          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>Ubicación</Text>
+          <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>UbicaciÃ³n</Text>
           <Text style={[styles.locationDetail, { fontFamily: 'Poppins-Regular' }]}>
             Lat: {producto.latitude}, Lon: {producto.longitude}
           </Text>
-          <Image source={require('../assets/images/mapa.png')} style={styles.mapImage} />
+          {Number.isFinite(Number(producto.latitude)) && Number.isFinite(Number(producto.longitude)) ? (
+            <MapView
+              style={styles.mapImage}
+              initialRegion={{
+                latitude: Number(producto.latitude),
+                longitude: Number(producto.longitude),
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}>
+              <Marker
+                coordinate={{
+                  latitude: Number(producto.latitude),
+                  longitude: Number(producto.longitude),
+                }}
+              />
+            </MapView>
+          ) : (
+            <Image source={require('../assets/images/mapa.png')} style={styles.mapImage} />
+          )}
         </ScrollView>
       </View>
     </View>
@@ -262,7 +281,7 @@ const styles = StyleSheet.create({
   userName: { fontSize: 16, color: '#333' },
   userContact: { fontSize: 14, color: '#777' },
   locationDetail: { fontSize: 14, color: '#555', marginBottom: 10 },
-  mapImage: { width: '100%', height: 150, borderRadius: 12, marginBottom: 10 },
+  mapImage: { width: '100%', height: 300, borderRadius: 12, marginBottom: 10 },
 });
 
 export default Producto;
