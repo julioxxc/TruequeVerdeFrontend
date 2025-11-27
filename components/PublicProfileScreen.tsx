@@ -186,7 +186,9 @@ const PublicProfileScreen = ({ route, navigation }) => {
                     </View>
                     <View style={styles.postInfo}>
                       <Text style={styles.postLabel}>Cambio por:</Text>
-                      <Text style={styles.postContent}>{item.content}</Text>
+                      <Text style={styles.postContent}>
+                        {item.cambiar_por || item.cambiarPor || item.content}
+                      </Text>
                     </View>
                   </View>
                 </View>
