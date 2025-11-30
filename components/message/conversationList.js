@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,10 +8,10 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import moment from 'moment'; // Ejecuta: npm install moment
+import api from '../../services/api';
 
 const ConversationsList = () => {
   const [conversations, setConversations] = useState([]);
@@ -24,34 +24,42 @@ const ConversationsList = () => {
     'Poppins-Bold': require('../../assets/fonts/Poppins-Bold.ttf'),
   });
 
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        const response = await axios.get('http://192.168.1.72:8000/api/conversations', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-        });
-        // Normalizar la respuesta para garantizar un array (evita errores si la API devuelve
-        // { data: [...] } o un objeto inesperado).
-        const items = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response.data?.data)
-          ? response.data.data
-          : [];
-        setConversations(items);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const fetchConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        navigation.replace('Login');
+        return;
       }
-    };
 
-    fetchConversations();
-  }, []);
+      const response = await api.get('/conversations');
+      // Normalizar la respuesta para garantizar un array (evita errores si la API devuelve
+      // { data: [...] } o un objeto inesperado).
+      const items = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+      setConversations(items);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        await AsyncStorage.removeItem('userToken');
+        navigation.replace('Login');
+        return;
+      }
+      setError(err?.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchConversations();
+      return () => {};
+    }, [fetchConversations])
+  );
 
   const renderConversationItem = ({ item }) => {
     // Obtener usuario opuesto

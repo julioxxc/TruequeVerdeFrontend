@@ -4,6 +4,7 @@ import { TextInput, Button, Checkbox } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
+import axios from 'axios';
 import { loginUser, validateToken } from 'services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginStyles from 'components/stylesheet/LoginStylesheet';
@@ -118,7 +119,33 @@ export default function LoginScreen() {
       });
 
     } catch (error) {
-      // Manejo de errores
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const serverMessage = typeof error.response?.data?.message === 'string'
+          ? error.response.data.message
+          : undefined;
+
+        if (status === 403) {
+          Alert.alert(
+            'Cuenta suspendida',
+            serverMessage ?? 'Tu cuenta ha sido suspendida. Si crees que es un error, contacta con soporte.'
+          );
+          return;
+        }
+
+        if (status === 401) {
+          Alert.alert(
+            'Credenciales invalidas',
+            'Usuario o contrasena incorrectos.'
+          );
+          return;
+        }
+
+        Alert.alert('Error', serverMessage ?? 'No se pudo iniciar sesion. Intenta mas tarde.');
+      } else {
+        Alert.alert('Error', 'Ocurrio un error al iniciar sesion. Intenta nuevamente.');
+      }
+      console.error('Error al iniciar sesion:', error);
     } finally {
       setIsLoading(false);
     }

@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, FlatList, Animated, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  FlatList,
+  Animated,
+  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 import styles from 'components/stylesheet/ProfileStylesheet';
 import { Avatar } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useUser } from 'context/UserContext';
 import api from 'services/api';
 import MapView, { Marker } from 'react-native-maps';
 
@@ -13,6 +26,10 @@ const PublicProfileScreen = ({ route, navigation }) => {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [location, setLocation] = useState(null);
   const [optionsVisible, setOptionsVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const { user: currentUser } = useUser();
   const optionsAnimation = useState(new Animated.Value(0))[0];
   const optionsTranslateY = optionsAnimation.interpolate({
     inputRange: [0, 1],
@@ -91,13 +108,98 @@ const PublicProfileScreen = ({ route, navigation }) => {
     navigation.navigate('Chat', { userId });
   };
 
+  const closeReportModal = () => {
+    setReportModalVisible(false);
+    setReportReason('');
+  };
+
   const handleReportUser = () => {
     hideOptionsMenu();
-    console.log('Reportar usuario');
+    if (!currentUser?.id) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para reportar usuarios.');
+      return;
+    }
+    setReportModalVisible(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!currentUser?.id) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para reportar usuarios.');
+      closeReportModal();
+      return;
+    }
+    if (!reportReason.trim()) {
+      Alert.alert('Razon requerida', 'Por favor escribe la razon del reporte.');
+      return;
+    }
+    const reportedUserId = Number(user?.id ?? userId);
+    if (!reportedUserId || Number.isNaN(reportedUserId)) {
+      Alert.alert('Error', 'No se pudo identificar al usuario a reportar.');
+      return;
+    }
+
+    try {
+      setSubmittingReport(true);
+      const payload = {
+        reported_user_id: reportedUserId,
+        reporting_user_id: Number(currentUser.id),
+        reason: reportReason.trim(),
+      };
+      const response = await api.post('/reports', payload);
+
+      if (response.status === 201) {
+        Alert.alert('Reporte enviado', 'Gracias por tu ayuda. Revisaremos tu reporte.');
+        closeReportModal();
+      } else {
+        Alert.alert('No se pudo enviar', 'Intentalo nuevamente en unos minutos.');
+      }
+    } catch (error) {
+      console.log('Error al reportar usuario:', error);
+      Alert.alert('Error', 'No se pudo enviar el reporte. Intentalo nuevamente.');
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   return (
     <View style={styles.container}>
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReportModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Reportar usuario</Text>
+            <Text style={styles.modalDescription}>Cuentanos brevemente la razon del reporte.</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Escribe la razon"
+              value={reportReason}
+              onChangeText={setReportReason}
+              multiline
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalSecondaryButton} onPress={closeReportModal}>
+                <Text style={styles.modalSecondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalPrimaryButton, submittingReport && { opacity: 0.8 }]}
+                onPress={handleSubmitReport}
+                disabled={submittingReport}
+              >
+                {submittingReport ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalPrimaryText}>Enviar reporte</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Botón para volver al chat */}
         <TouchableOpacity

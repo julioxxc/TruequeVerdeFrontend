@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from 'context/UserContext';
+import api from 'services/api';
 
 type RootStackParamList = {
   Chat: { conversationId: number };
@@ -35,68 +36,79 @@ export default function Chat({ route, navigation }: Props) {
     lastname: string;
   } | null>(null);
 
+  const handleUnauthorized = async () => {
+    await AsyncStorage.removeItem('userToken');
+    navigation.replace('Login');
+  };
+
   const fetchConversation = async (conversationId: number) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(
-        `http://192.168.1.72:8000/api/conversations/${conversationId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/json',
-          },
-        }
-      );
-      const data = await response.json();
+      if (!token) {
+        await handleUnauthorized();
+        return;
+      }
+
+      const { data } = await api.get(`/conversations/${conversationId}`);
       setChatPartner(data.other_user);
       setConversation(data);
       return data;
-    } catch (error) {
-      console.error('Error al obtener conversación:', error);
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
+      console.error('Error al obtener conversacion:', error);
     }
   };
 
   const fetchMessages = async (conversationId: number) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(
-        `http://192.168.1.72:8000/api/conversations/${conversationId}/messages`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/json',
-          },
-        }
-      );
-      const data = await response.json();
-      const formatted = data.map((msg: any) => ({
+      if (!token) {
+        await handleUnauthorized();
+        setMessages([]);
+        return;
+      }
+
+      const { data } = await api.get(`/conversations/${conversationId}/messages`);
+
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.messages)
+        ? data.messages
+        : [];
+
+      const formatted = items.map((msg: any) => ({
         id: msg.id,
         text: msg.content,
         isMe: msg.user_id === user?.id,
       }));
       setMessages(formatted);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
       console.error('Error al obtener mensajes:', error);
+      setMessages([]);
     }
   };
 
   const sendMessageToApi = async (text: string) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(
-        `http://192.168.1.72:8000/api/conversations/${conversationId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({ content: text }),
-        }
-      );
+      if (!token) {
+        await handleUnauthorized();
+        return;
+      }
 
-      const newMessage = await response.json();
+      const { data: newMessage } = await api.post(
+        `/conversations/${conversationId}/messages`,
+        { content: text }
+      );
       setMessages((prev) => [
         ...prev,
         {
@@ -106,7 +118,11 @@ export default function Chat({ route, navigation }: Props) {
         },
       ]);
       fetchMessages(conversationId);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
       console.error('Error al enviar mensaje:', error);
     }
   };
@@ -142,8 +158,8 @@ export default function Chat({ route, navigation }: Props) {
   );
 
   const isOfferUser =
-    user?.id !== undefined && 
-    conversation !== null && 
+    user?.id !== undefined &&
+    conversation !== null &&
     conversation.post_id !== undefined &&
     user.id === conversation.offer_user_id;
 
@@ -188,7 +204,11 @@ export default function Chat({ route, navigation }: Props) {
         {messages.map((message) => (
           <View
             key={message.id}
-            className={`mb-2 max-w-[70%] rounded-xl p-3 ${message.isMe ? 'self-end rounded-br-none bg-green-500' : 'self-start rounded-bl-none bg-gray-500'}`}>
+            className={`mb-2 max-w-[70%] rounded-xl p-3 ${
+              message.isMe
+                ? 'self-end rounded-br-none bg-green-500'
+                : 'self-start rounded-bl-none bg-gray-500'
+            }`}>
             <Text className="text-white">{message.text}</Text>
           </View>
         ))}
