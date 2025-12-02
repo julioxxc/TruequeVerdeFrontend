@@ -297,13 +297,13 @@ const Producto = ({ producto, onClose, navigation }) => {
           {/* Sección de intercambio */}
           <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>Cambio por:</Text>
           <Text style={[styles.tradeText, { fontFamily: 'Poppins-Regular' }]}>
-            {producto.content}
+            {producto.cambiar_por || producto.cambiarPor || 'No especificado'}
           </Text>
 
           {/* Descripción */}
           <Text style={[styles.sectionTitle, { fontFamily: 'Poppins-Bold' }]}>Descripción</Text>
           <Text style={[styles.modalText, { fontFamily: 'Poppins-Regular' }]}>
-            {producto.content}
+            {producto.content || producto.description || 'Sin descripcion'}
           </Text>
 
           {/* Información del usuario */}

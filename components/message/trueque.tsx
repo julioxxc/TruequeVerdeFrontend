@@ -49,7 +49,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Se requiere permiso para acceder a la ubicaciA3n');
+        Alert.alert('Permiso denegado', 'Se requiere permiso para acceder a la ubicación');
         setLocationPermission(false);
         return;
       }
@@ -64,7 +64,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
       setConfirmedLocation(coords);
       setSelectionCandidate(null);
     } catch (error: any) {
-      console.log('No se pudo obtener ubicaciA3n:', error.message);
+      console.log('No se pudo obtener ubicación:', error.message);
       Alert.alert('Sin ubicación', 'No se pudo obtener tu ubicación actual.');
     }
   };
@@ -200,7 +200,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
         <ArrowLeft size={28} color="white" />
       </TouchableOpacity>
 
-      <Text className="ml-4 text-2xl font-bold">Formulario de intercambio</Text>
+      <Text className="ml-4 text-2xl font-bold">Intercambio</Text>
     </View>
   );
 
@@ -242,15 +242,6 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
           onChangeText={setProducto}
         />
 
-        {/* DescripciA3n */}
-        <Text className="mb-1 text-lg font-semibold">Descripción</Text>
-        <TextInput
-          className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
-          placeholder="DescripciA3n del producto"
-          value={descripcion}
-          onChangeText={setDescripcion}
-        />
-
         {/* Cambio por */}
         <Text className="mb-1 text-lg font-semibold">Cambio por</Text>
         <TextInput
@@ -260,7 +251,16 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
           onChangeText={setCambioPor}
         />
 
-        {/* UbicaciA3n seleccionada */}
+                {/* Descripción */}
+        <Text className="mb-1 text-lg font-semibold">Descripción</Text>
+        <TextInput
+          className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
+          placeholder="Descripción del Intercambio"
+          value={descripcion}
+          onChangeText={setDescripcion}
+        />
+
+        {/* Ubicación seleccionada */}
         <Text className="mb-1 text-lg font-semibold">Ubicación seleccionada</Text>
         <Text className="mb-3 text-base text-gray-700">
           {confirmedLocation

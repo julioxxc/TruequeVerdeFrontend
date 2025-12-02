@@ -66,7 +66,7 @@ const PublicProfileScreen = ({ route, navigation }) => {
         const response = await api.get(`/profile/${user.username}`);
         console.log('Posts cargados:', response.data); // <-- LOG
         // Asegurar que posts sea siempre un array para evitar errores al usar .length
-        setPosts(response.data.posts || []);
+        setPosts((response.data.posts || []).filter((post) => post.status_id === 2));
       } catch (error) {
         setPosts([]);
       } finally {

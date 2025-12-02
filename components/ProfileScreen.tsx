@@ -35,7 +35,7 @@ const HomeScreen = ({ navigation }) => {
       try {
         if (!user?.username) return;
         const response = await api.get('http://192.168.1.72:8000/api/profile/' + user.username);
-        setPosts(response.data.posts); // <-- ¡Aquí el cambio!
+        setPosts((response.data.posts || []).filter((post) => post.status_id === 2));
       } catch (error) {
         setPosts([]);
       } finally {
