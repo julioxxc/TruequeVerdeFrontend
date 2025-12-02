@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { useState, useCallback, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Animated, Alert } from 'react-native';
 import { Image } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -7,8 +7,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from 'context/UserContext';
 import api from 'services/api';
 
+type ActiveBarterBanner = {
+  id: number | string;
+  offer: string;
+  request: string;
+  description?: string | null;
+  greenpointId?: number | null;
+};
+
 type RootStackParamList = {
-  Chat: { conversationId: number };
+  Chat: { conversationId: number; activeBarter?: ActiveBarterBanner };
   BarterScreen: { conversationId: number; postId: number };
   PublicProfile: { userId: number }; // prueba de navegación al perfil público
   Home: { screen: 'CatalogoMain'; params?: { openPostId?: number } };
@@ -35,6 +43,8 @@ export default function Chat({ route, navigation }: Props) {
     name: string;
     lastname: string;
   } | null>(null);
+  const [activeBarter, setActiveBarter] = useState<ActiveBarterBanner | null>(null);
+  const barterStorageKey = `activeBarter:${conversationId}`;
 
   const handleUnauthorized = async () => {
     await AsyncStorage.removeItem('userToken');
@@ -97,6 +107,59 @@ export default function Chat({ route, navigation }: Props) {
     }
   };
 
+  const loadActiveBarter = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(barterStorageKey);
+      if (stored) {
+        setActiveBarter(JSON.parse(stored));
+      } else {
+        setActiveBarter(null);
+      }
+    } catch (storageError) {
+      console.log('No se pudo cargar el trueque activo:', storageError);
+    }
+  }, [barterStorageKey]);
+
+  useEffect(() => {
+    const fromParams = route.params?.activeBarter;
+    if (fromParams) {
+      setActiveBarter(fromParams);
+      AsyncStorage.setItem(barterStorageKey, JSON.stringify(fromParams)).catch((storageError) =>
+        console.log('No se pudo guardar el trueque recibido:', storageError)
+      );
+    }
+  }, [route.params?.activeBarter, barterStorageKey]);
+
+  const clearActiveBarter = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(barterStorageKey);
+    } catch (storageError) {
+      console.log('No se pudo limpiar el trueque activo:', storageError);
+    }
+    setActiveBarter(null);
+  }, [barterStorageKey]);
+
+  const handleShowBarterDetails = () => {
+    if (!activeBarter) return;
+    const summary = [
+      activeBarter.offer ? `Ofreces: ${activeBarter.offer}` : '',
+      activeBarter.request ? `Solicitas: ${activeBarter.request}` : '',
+      activeBarter.description ? `Notas: ${activeBarter.description}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    Alert.alert('Trueque en curso', summary || 'Revisa los detalles del intercambio.');
+  };
+
+  const handleFinishBarter = () => {
+    if (!activeBarter) return;
+    Alert.alert('Finalizar trueque', 'Confirma que quieres marcar el trueque como finalizado.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Finalizar', style: 'destructive', onPress: () => clearActiveBarter() },
+    ]);
+  };
+
   const sendMessageToApi = async (text: string) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -152,9 +215,10 @@ export default function Chat({ route, navigation }: Props) {
     useCallback(() => {
       fetchConversation(conversationId);
       fetchMessages(conversationId);
+      loadActiveBarter();
       const interval = setInterval(() => fetchMessages(conversationId), 2000);
       return () => clearInterval(interval);
-    }, [conversationId])
+    }, [conversationId, loadActiveBarter])
   );
 
   const isOfferUser =
@@ -201,6 +265,32 @@ export default function Chat({ route, navigation }: Props) {
 
       {/* Mensajes */}
       <ScrollView className="flex-1 p-4 pb-40" contentContainerStyle={{ paddingBottom: 100 }}>
+        {activeBarter && (
+          <View className="mb-4 items-center">
+            <View className="w-full rounded-3xl border border-gray-300 bg-white shadow-md">
+              <View className="items-center justify-center border-b border-gray-200 px-4 py-3">
+                <Text className="text-lg font-bold text-gray-800">Trueque en curso</Text>
+                {activeBarter.description ? (
+                  <Text className="mt-1 text-center text-sm text-gray-600" numberOfLines={2}>
+                    {activeBarter.description}
+                  </Text>
+                ) : null}
+              </View>
+              <View className="flex-row">
+                <TouchableOpacity
+                  className="flex-1 items-center border-r border-gray-200 py-3"
+                  onPress={handleShowBarterDetails}>
+                  <Text className="font-semibold text-gray-800">Detalles</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="flex-1 items-center py-3"
+                  onPress={handleFinishBarter}>
+                  <Text className="font-semibold text-emerald-700">Finalizar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
         {messages.map((message) => (
           <View
             key={message.id}

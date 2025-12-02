@@ -6,10 +6,22 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import api from 'services/api';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-type FormularioProps = {
-  route: { params: { postId: number } };
+type ActiveBarterBanner = {
+  id: number | string;
+  offer: string;
+  request: string;
+  description?: string | null;
+  greenpointId?: number | null;
 };
+
+type BarterStackParamList = {
+  BarterScreen: { postId: number; conversationId: number };
+  Chat: { conversationId: number; activeBarter?: ActiveBarterBanner };
+};
+
+type FormularioProps = NativeStackScreenProps<BarterStackParamList, 'BarterScreen'>;
 
 type Coordinates = {
   latitude: number;
@@ -29,11 +41,11 @@ const normalizeText = (text: string) =>
     .toLowerCase()
     .trim();
 
-const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
+const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation }) => {
   const [producto, setProducto] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
   const [cambioPor, setCambioPor] = useState<string>('');
-  const { postId } = route.params;
+  const { postId, conversationId } = route.params;
   const [token, setToken] = useState<string | null>(null);
   const [items, setItems] = useState<{ id: number; name: string; category?: string }[]>([]);
   const [unitId, setUnitId] = useState<string>('');
@@ -233,7 +245,25 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
         }
       );
 
+      const barterBanner: ActiveBarterBanner = {
+        id: response?.data?.id ?? Date.now(),
+        offer: producto.trim(),
+        request: cambioPor.trim(),
+        description: descripcion.trim() || null,
+        greenpointId: selectedGreenPointId,
+      };
+
+      try {
+        await AsyncStorage.setItem(
+          'activeBarter:' + conversationId,
+          JSON.stringify(barterBanner)
+        );
+      } catch (storageError) {
+        console.log('No se pudo guardar el estado del trueque:', storageError);
+      }
+
       Alert.alert('Éxito', 'Intercambio creado correctamente');
+      navigation.navigate('Chat', { conversationId, activeBarter: barterBanner });
       console.log('Respuesta:', response.data);
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
@@ -254,7 +284,9 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
 
   const Header = () => (
     <View className="flex-row items-center">
-      <TouchableOpacity className="h-12 w-12 items-center justify-center rounded-full bg-emerald-800">
+      <TouchableOpacity
+        className="h-12 w-12 items-center justify-center rounded-full bg-emerald-800"
+        onPress={() => navigation.goBack()}>
         <ArrowLeft size={28} color="white" />
       </TouchableOpacity>
 

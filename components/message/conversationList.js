@@ -109,22 +109,32 @@ const ConversationsList = () => {
   if (error) return <Text style={styles.error}>Error: {error}</Text>;
 
   return (
-    <FlatList
-      data={conversations}
-      renderItem={renderConversationItem}
-      keyExtractor={(item, index) => (item && item.id != null ? item.id.toString() : index.toString())}
-      ListEmptyComponent={
-        <Text style={styles.empty}>No hay conversaciones activas</Text>
-      }
-      contentContainerStyle={styles.listContent}
-    />
+    <View style={styles.container}>
+      <FlatList
+        data={conversations}
+        renderItem={renderConversationItem}
+        keyExtractor={(item, index) => (item && item.id != null ? item.id.toString() : index.toString())}
+        ListEmptyComponent={
+          <Text style={styles.empty}>No hay conversaciones activas</Text>
+        }
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
   listContent: {
     flexGrow: 1,
     paddingVertical: 10,
+    paddingBottom: 90,
   },
   center: {
     flex: 1,
