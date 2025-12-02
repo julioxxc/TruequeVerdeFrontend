@@ -236,6 +236,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
           unit_id: parsedUnitId,
           amount: parsedAmount,
           greenpoint_id: selectedGreenPointId,
+          status_id: 1,
         },
         {
           headers: {

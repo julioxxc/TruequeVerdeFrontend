@@ -154,9 +154,28 @@ export default function Chat({ route, navigation }: Props) {
 
   const handleFinishBarter = () => {
     if (!activeBarter) return;
+    const barterId = activeBarter.id;
+    if (!barterId) {
+      clearActiveBarter();
+      return;
+    }
+
     Alert.alert('Finalizar trueque', 'Confirma que quieres marcar el trueque como finalizado.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Finalizar', style: 'destructive', onPress: () => clearActiveBarter() },
+      {
+        text: 'Finalizar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.put(`/barters/${barterId}`, { status_id: 2 });
+            await clearActiveBarter();
+            Alert.alert('Listo', 'El trueque se marcó como finalizado.');
+          } catch (finishError) {
+            console.log('No se pudo finalizar el trueque:', finishError);
+            Alert.alert('Error', 'No se pudo finalizar el trueque. Intenta nuevamente.');
+          }
+        },
+      },
     ]);
   };
 
