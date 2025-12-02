@@ -22,12 +22,22 @@ type SelectionCandidate = {
   greenPointId?: number | null;
 };
 
+const normalizeText = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
 const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
   const [producto, setProducto] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
   const [cambioPor, setCambioPor] = useState<string>('');
   const { postId } = route.params;
   const [token, setToken] = useState<string | null>(null);
+  const [items, setItems] = useState<{ id: number; name: string; category?: string }[]>([]);
+  const [unitId, setUnitId] = useState<string>('');
+  const [amount, setAmount] = useState<string>('');
   const mapRef = useRef<MapView | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [location, setLocation] = useState<Coordinates | null>(null);
@@ -83,6 +93,13 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
           longitude: parseFloat(point.longitude),
         }));
         setGreenpoints(points);
+
+        const elements = (data.elements || []).map((element: any) => ({
+          id: element.element_id,
+          name: element.element_name,
+          category: element.category_name,
+        }));
+        setItems(elements);
       } catch (error: any) {
         console.log('Error al obtener puntos verdes:', error.message);
       }
@@ -161,11 +178,52 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
 
   const enviarFormulario = async () => {
     try {
+      if (!producto.trim() || !cambioPor.trim()) {
+        Alert.alert('Datos incompletos', 'Ingresa el producto a cambiar y lo que solicitas.');
+        return;
+      }
+
+      if (!items.length) {
+        Alert.alert('Sin datos', 'No se pudieron cargar los items, intenta nuevamente.');
+        return;
+      }
+
+      const normalizedProducto = normalizeText(producto);
+      const normalizedCambioPor = normalizeText(cambioPor);
+
+      const exactOffer = items.find((item) => normalizeText(item.name) === normalizedProducto);
+      const exactRequest = items.find((item) => normalizeText(item.name) === normalizedCambioPor);
+
+      const similarOffer =
+        exactOffer ||
+        items.find((item) => normalizeText(item.name).includes(normalizedProducto) || normalizedProducto.includes(normalizeText(item.name)));
+      const similarRequest =
+        exactRequest ||
+        items.find((item) => normalizeText(item.name).includes(normalizedCambioPor) || normalizedCambioPor.includes(normalizeText(item.name)));
+
+      if (!similarOffer) {
+        Alert.alert('No encontrado', 'No se encontró un item ofrecido que coincida (ni parecido) en la base de datos.');
+        return;
+      }
+
+      if (!similarRequest) {
+        Alert.alert('No encontrado', 'No se encontró un item solicitado que coincida (ni parecido) en la base de datos.');
+        return;
+      }
+
+      const parsedUnitId = unitId ? Number(unitId) : null;
+      const parsedAmount = amount ? Number(amount) : null;
+
       const response = await axios.post(
         'http://192.168.1.72:8000/api/barters',
         {
           post_id: postId,
           description: descripcion,
+          offer_item_id: similarOffer.id,
+          request_item_id: similarRequest.id,
+          unit_id: parsedUnitId,
+          amount: parsedAmount,
+          greenpoint_id: selectedGreenPointId,
         },
         {
           headers: {
@@ -242,15 +300,34 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
           onChangeText={setProducto}
         />
 
-        {/* Cambio por */}
-        <Text className="mb-1 text-lg font-semibold">Cambio por</Text>
-        <TextInput
-          className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
-          placeholder="Que deseas cambiar por el producto"
-          value={cambioPor}
-          onChangeText={setCambioPor}
-        />
-
+        <Text className="mb-1 text-lg font-semibold">Unidad y cantidad</Text>
+        <View className="mb-4 flex-row items-center space-x-2">
+          <View className="flex-1 flex-row flex-wrap gap-2">
+            {[
+              { id: 1, label: 'Piezas' },
+              { id: 2, label: 'Kilos' },
+              { id: 3, label: 'Gramos' },
+            ].map((unit) => (
+              <TouchableOpacity
+                key={unit.id}
+                className={`rounded-full px-4 py-2 ${unitId === String(unit.id) ? 'bg-emerald-700' : 'bg-gray-300'}`}
+                onPress={() => setUnitId(String(unit.id))}
+              >
+                <Text className={`text-sm font-semibold ${unitId === String(unit.id) ? 'text-white' : 'text-black'}`}>
+                  {unit.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            className="w-24 rounded-full bg-gray-300 p-3 text-lg"
+            placeholder="Cantidad"
+            keyboardType="numeric"
+            value={amount}
+            onChangeText={setAmount}
+          />
+        </View>
+        
                 {/* Descripción */}
         <Text className="mb-1 text-lg font-semibold">Descripción</Text>
         <TextInput
@@ -258,6 +335,15 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route }) => {
           placeholder="Descripción del Intercambio"
           value={descripcion}
           onChangeText={setDescripcion}
+        />
+
+{/* Cambio por */}
+        <Text className="mb-1 text-lg font-semibold">Cambio por</Text>
+        <TextInput
+          className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
+          placeholder="Que deseas cambiar por el producto"
+          value={cambioPor}
+          onChangeText={setCambioPor}
         />
 
         {/* Ubicación seleccionada */}
