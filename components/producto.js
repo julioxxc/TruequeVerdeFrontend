@@ -10,6 +10,8 @@ import {
   Dimensions,
   ScrollView,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
@@ -23,6 +25,10 @@ const screenWidth = Dimensions.get('window').width;
 const Producto = ({ producto, onClose, navigation }) => {
   const [mensaje, setMensaje] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
   const { user, token: contextToken } = useUser();
 
   const [fontsLoaded] = useFonts({
@@ -107,15 +113,139 @@ const Producto = ({ producto, onClose, navigation }) => {
     }
   };
 
+  const toggleOptionsMenu = () => {
+    setOptionsVisible((prev) => !prev);
+  };
+
+  const closeReportModal = () => {
+    setReportModalVisible(false);
+    setReportReason('');
+  };
+
+  const handleReportPress = async () => {
+    setOptionsVisible(false);
+    const userData = await AsyncStorage.getItem('userData');
+    const parsedUser = userData ? JSON.parse(userData) : null;
+    const sessionUser = user || parsedUser;
+
+    if (!sessionUser?.id) {
+      Alert.alert('Sesion', 'Inicia sesion para reportar publicaciones.');
+      return;
+    }
+    setReportModalVisible(true);
+  };
+
+  const handleSubmitReport = async () => {
+    const reason = reportReason.trim();
+    if (!reason) {
+      Alert.alert('Razon requerida', 'Por favor escribe la razon del reporte.');
+      return;
+    }
+
+    const userData = await AsyncStorage.getItem('userData');
+    const parsedUser = userData ? JSON.parse(userData) : null;
+    const sessionUser = user || parsedUser;
+    const token = contextToken || (await AsyncStorage.getItem('userToken'));
+    const postId = Number(producto?.id);
+
+    if (!sessionUser?.id || !token) {
+      Alert.alert('Sesion', 'Inicia sesion para enviar el reporte.');
+      return;
+    }
+
+    if (!postId || Number.isNaN(postId)) {
+      Alert.alert('Error', 'No se pudo identificar la publicacion a reportar.');
+      return;
+    }
+
+    try {
+      setSubmittingReport(true);
+      const payload = {
+        post_id: postId,
+        reason,
+      };
+      const response = await api.post('/post-reports', payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 201 || response.status === 200) {
+        Alert.alert('Reporte enviado', 'Gracias por tu ayuda. Revisaremos tu reporte.');
+        closeReportModal();
+      } else {
+        Alert.alert('No se pudo enviar', 'Intentalo nuevamente en unos minutos.');
+      }
+    } catch (error) {
+      console.error('Error al reportar publicacion:', error);
+      Alert.alert('Error', 'No se pudo enviar el reporte. Intenta de nuevo.');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   return (
-    <View style={styles.modalContainer}>
-      <View style={styles.modalContent}>
+    <>
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReportModal}>
+        <View style={styles.reportOverlay}>
+          <View style={styles.reportCard}>
+            <Text style={[styles.reportTitle, { fontFamily: 'Poppins-Bold' }]}>Reportar publicacion</Text>
+            <Text style={[styles.reportDescription, { fontFamily: 'Poppins-Regular' }]}>
+              Cuentanos brevemente la razon del reporte.
+            </Text>
+            <TextInput
+              style={[styles.reportInput, { fontFamily: 'Poppins-Regular' }]}
+              placeholder="Escribe la razon"
+              placeholderTextColor="#6b7280"
+              multiline
+              value={reportReason}
+              onChangeText={setReportReason}
+            />
+            <View style={styles.reportActions}>
+              <TouchableOpacity style={styles.reportCancelButton} onPress={closeReportModal}>
+                <Text style={[styles.reportCancelText, { fontFamily: 'Poppins-Bold' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reportSubmitButton, submittingReport && { opacity: 0.8 }]}
+                onPress={handleSubmitReport}
+                disabled={submittingReport}>
+                {submittingReport ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.reportSubmitText, { fontFamily: 'Poppins-Bold' }]}>
+                    Enviar reporte
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
         {/* Header con botón de cierre y tí­tulo */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Icon name="times" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={[styles.modalTitle, { fontFamily: 'Poppins-Bold' }]}>{producto.title}</Text>
+          <TouchableOpacity onPress={toggleOptionsMenu} style={styles.optionsButton}>
+            <Icon name="ellipsis-v" size={20} color="#fff" />
+          </TouchableOpacity>
+          {optionsVisible && (
+            <View style={styles.optionsMenu}>
+              <TouchableOpacity style={styles.optionsItem} onPress={handleReportPress}>
+                <Icon name="flag" size={16} color="#b91c1c" />
+                <Text style={[styles.optionsItemText, { fontFamily: 'Poppins-Bold' }]}>
+                  Reportar publicacion
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Carrusel de imágenes */}
@@ -226,6 +356,7 @@ const Producto = ({ producto, onClose, navigation }) => {
         </ScrollView>
       </View>
     </View>
+    </>
   );
 };
 
@@ -244,6 +375,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   header: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#66aa4f',
@@ -254,6 +386,25 @@ const styles = StyleSheet.create({
   },
   closeButton: { marginRight: 10 },
   modalTitle: { flex: 1, fontSize: 20, color: '#fff', textAlign: 'center' },
+  optionsButton: { padding: 4, marginLeft: 6 },
+  optionsMenu: {
+    position: 'absolute',
+    top: 50,
+    right: 10,
+    width: 190,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+  optionsItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  optionsItemText: { marginLeft: 8, color: '#b91c1c', fontSize: 14 },
   imageContainer: { height: 220, marginVertical: 10 },
   imageWrapper: { width: screenWidth, alignItems: 'center' },
   productImage: { width: screenWidth * 0.85, height: 200, borderRadius: 12 },
@@ -288,6 +439,53 @@ const styles = StyleSheet.create({
   userContact: { fontSize: 14, color: '#777' },
   locationDetail: { fontSize: 14, color: '#555', marginBottom: 10 },
   mapImage: { width: '100%', height: 300, borderRadius: 12, marginBottom: 10 },
+  reportOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  reportCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  reportTitle: { fontSize: 18, color: '#14532d', marginBottom: 6 },
+  reportDescription: { color: '#4b5563', marginBottom: 10 },
+  reportInput: {
+    height: 110,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 12,
+    padding: 12,
+    textAlignVertical: 'top',
+    backgroundColor: '#fff',
+    marginBottom: 14,
+  },
+  reportActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  reportCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginRight: 8,
+    backgroundColor: '#e5e7eb',
+  },
+  reportCancelText: { color: '#111827' },
+  reportSubmitButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#14532d',
+  },
+  reportSubmitText: { color: '#fff' },
 });
 
 export default Producto;
