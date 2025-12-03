@@ -12,6 +12,7 @@ import * as Location from 'expo-location';
 const HomeScreen = ({ navigation }) => {
   const { logout, token: contextToken, user } = useUser();
   const [posts, setPosts] = useState([]);
+  const [profileData, setProfileData] = useState(null);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [location, setLocation] = useState(null);
 
@@ -31,18 +32,21 @@ const HomeScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-    const fetchPosts = async () => {
+    const fetchProfileAndPosts = async () => {
       try {
         if (!user?.username) return;
-        const response = await api.get('http://192.168.1.72:8000/api/profile/' + user.username);
-        setPosts((response.data.posts || []).filter((post) => post.status_id === 2));
+        const response = await api.get(`/profile/${user.username}`);
+        const data = response.data || {};
+        setProfileData(data);
+        setPosts((data.posts || []).filter((post) => post.status_id === 2));
       } catch (error) {
+        setProfileData(null);
         setPosts([]);
       } finally {
         setLoadingPosts(false);
       }
     };
-    fetchPosts();
+    fetchProfileAndPosts();
   }, [user]);
 
   useEffect(() => {
@@ -65,6 +69,38 @@ const HomeScreen = ({ navigation }) => {
 
   // Obtener la inicial del nombre de usuario
   const userInitial = user?.firstName?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '?';
+  const renderRating = () => {
+    const data = profileData || user;
+    if (!data) return null;
+    const avg = Number(
+      data.rating_average ??
+        (data.reputation_average !== undefined ? Number(data.reputation_average) / 10 : 0)
+    );
+    const normalized = Math.max(0, Math.min(5, avg));
+    const fullStars = Math.floor(normalized);
+    const hasHalf = normalized - fullStars >= 0.5;
+    const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
+
+    return (
+      <View style={{ marginTop: 8 }}>
+        <View style={styles.ratingRow}>
+          {[...Array(fullStars)].map((_, idx) => (
+            <Icon key={`full-${idx}`} name="star" size={22} color="#f59e0b" style={styles.ratingIcon} />
+          ))}
+          {hasHalf && <Icon name="star-half-full" size={22} color="#f59e0b" style={styles.ratingIcon} />}
+          {[...Array(emptyStars)].map((_, idx) => (
+            <Icon key={`empty-${idx}`} name="star-outline" size={22} color="#d1d5db" style={styles.ratingIcon} />
+          ))}
+          <Text style={styles.ratingValue}>
+            {normalized.toFixed(1)} / 5
+          </Text>
+        </View>
+        <Text style={styles.ratingLevel}>
+          {data.reputation_level ? `Nivel: ${data.reputation_level}` : 'Sin nivel asignado'}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -88,6 +124,11 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.name}>{user?.name} {user?.lastname}</Text>
             <Text style={styles.username}>@{user?.username}</Text>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Calificación</Text>
+          {user ? renderRating() : <Text style={styles.loadingText}>Cargando calificación...</Text>}
         </View>
 
         {/* Información del usuario */}

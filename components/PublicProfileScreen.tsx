@@ -161,6 +161,38 @@ const PublicProfileScreen = ({ route, navigation }) => {
     }
   };
 
+  const renderRating = () => {
+    if (!user) return null;
+    const avg = Number(
+      user.rating_average ??
+        (user.reputation_average !== undefined ? Number(user.reputation_average) / 10 : 0)
+    );
+    const normalized = Math.max(0, Math.min(5, avg));
+    const fullStars = Math.floor(normalized);
+    const hasHalf = normalized - fullStars >= 0.5;
+    const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
+
+    return (
+      <View style={{ marginTop: 8 }}>
+        <View style={styles.ratingRow}>
+          {[...Array(fullStars)].map((_, idx) => (
+            <Icon key={`full-${idx}`} name="star" size={22} color="#f59e0b" style={styles.ratingIcon} />
+          ))}
+          {hasHalf && <Icon name="star-half-full" size={22} color="#f59e0b" style={styles.ratingIcon} />}
+          {[...Array(emptyStars)].map((_, idx) => (
+            <Icon key={`empty-${idx}`} name="star-outline" size={22} color="#d1d5db" style={styles.ratingIcon} />
+          ))}
+          <Text style={styles.ratingValue}>
+            {normalized.toFixed(1)} / 5
+          </Text>
+        </View>
+        <Text style={styles.ratingLevel}>
+          {user.reputation_level ? `Nivel: ${user.reputation_level}` : 'Sin nivel asignado'}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Modal
@@ -249,8 +281,9 @@ const PublicProfileScreen = ({ route, navigation }) => {
         </View>
 
         {/* Aqui puede ir la reputacion IDK */}
-        <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>Calificacion IDK</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Calificación</Text>
+          {user ? renderRating() : <Text style={styles.loadingText}>Cargando calificación...</Text>}
         </View>
 
         {/* Publicaciones */}
