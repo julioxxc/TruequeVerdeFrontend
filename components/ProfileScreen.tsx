@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
 import styles from 'components/stylesheet/ProfileStylesheet';
 import { Avatar } from 'react-native-paper';
@@ -8,6 +8,7 @@ import { useUser } from 'context/UserContext';
 import api from 'services/api';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { useFocusEffect } from '@react-navigation/native';
 
 const HomeScreen = ({ navigation }) => {
   const { logout, token: contextToken, user } = useUser();
@@ -15,6 +16,30 @@ const HomeScreen = ({ navigation }) => {
   const [profileData, setProfileData] = useState(null);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [location, setLocation] = useState(null);
+
+  const fetchProfileAndPosts = useCallback(
+    async (showLoader = false) => {
+      if (showLoader) setLoadingPosts(true);
+      if (!user?.username) {
+        setProfileData(null);
+        setPosts([]);
+        if (showLoader) setLoadingPosts(false);
+        return;
+      }
+      try {
+        const response = await api.get(`/profile/${user.username}`);
+        const data = response.data || {};
+        setProfileData(data);
+        setPosts((data.posts || []).filter((post) => post.status_id === 2));
+      } catch (error) {
+        setProfileData(null);
+        setPosts([]);
+      } finally {
+        if (showLoader) setLoadingPosts(false);
+      }
+    },
+    [user?.username]
+  );
 
   const handleLogout = async () => {
     try {
@@ -32,22 +57,18 @@ const HomeScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-    const fetchProfileAndPosts = async () => {
-      try {
-        if (!user?.username) return;
-        const response = await api.get(`/profile/${user.username}`);
-        const data = response.data || {};
-        setProfileData(data);
-        setPosts((data.posts || []).filter((post) => post.status_id === 2));
-      } catch (error) {
-        setProfileData(null);
-        setPosts([]);
-      } finally {
-        setLoadingPosts(false);
-      }
-    };
-    fetchProfileAndPosts();
-  }, [user]);
+    fetchProfileAndPosts(true);
+  }, [fetchProfileAndPosts]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfileAndPosts(false);
+      const intervalId = setInterval(() => {
+        fetchProfileAndPosts(false);
+      }, 5000);
+      return () => clearInterval(intervalId);
+    }, [fetchProfileAndPosts])
+  );
 
   useEffect(() => {
     (async () => {

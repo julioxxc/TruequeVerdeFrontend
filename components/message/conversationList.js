@@ -1,24 +1,80 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ActivityIndicator 
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import moment from 'moment'; // Ejecuta: npm install moment
 import api from '../../services/api';
+import { useUser } from '../../context/UserContext';
+
+const FINISHED_BARTER_PREFIX = '__TRUEQUE_FINALIZADO__';
+const SEEN_STORAGE_KEY = 'seen_conversations';
+
+const getNotificationLabel = (conversation) => {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  const lastSeenAtMs = conversation?.lastSeenAt
+    ? new Date(conversation.lastSeenAt).getTime()
+    : null;
+  const getTimestamp = (value) => {
+    const date = value ? new Date(value) : null;
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : null;
+  };
+  const lastMessageMs =
+    getTimestamp(conversation?.updated_at) ||
+    getTimestamp(conversation?.last_message_at) ||
+    getTimestamp(messages[0]?.created_at) ||
+    getTimestamp(messages[messages.length - 1]?.created_at) ||
+    null;
+
+  const hasNewSinceSeen =
+    lastSeenAtMs !== null && lastMessageMs !== null ? lastMessageMs > lastSeenAtMs : false;
+
+  const hasFinishedBarter = messages.some(
+    (msg) => typeof msg?.content === 'string' && msg.content.startsWith(FINISHED_BARTER_PREFIX)
+  );
+  if (hasFinishedBarter) {
+    return 'Trueque finalizado';
+  }
+
+  const barterStatus =
+    conversation?.barter_status_id ??
+    conversation?.barter_status ??
+    conversation?.barter?.status_id;
+  if (barterStatus === 1 || barterStatus === 'active') {
+    return 'Trueque establecido';
+  }
+
+  const unreadCount = conversation?.unread_messages_count ?? conversation?.unread_count ?? 0;
+  const hasUnread =
+    hasNewSinceSeen ||
+    (lastSeenAtMs === null && (unreadCount > 0 || messages.length > 0));
+
+  if (!messages.length && lastSeenAtMs === null) {
+    return 'Nueva conversación';
+  }
+
+  if (hasUnread) {
+    return 'Mensaje nuevo';
+  }
+
+  return '';
+};
 
 const ConversationsList = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [seenConversations, setSeenConversations] = useState({});
   const navigation = useNavigation();
-  
+  const { user } = useUser();
+
   const [fontsLoaded] = useFonts({
     'Poppins-Regular': require('../../assets/fonts/Poppins-Regular.ttf'),
     'Poppins-Bold': require('../../assets/fonts/Poppins-Bold.ttf'),
@@ -34,8 +90,6 @@ const ConversationsList = () => {
       }
 
       const response = await api.get('/conversations');
-      // Normalizar la respuesta para garantizar un array (evita errores si la API devuelve
-      // { data: [...] } o un objeto inesperado).
       const items = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data)
@@ -54,6 +108,24 @@ const ConversationsList = () => {
     }
   }, [navigation]);
 
+  useEffect(() => {
+    AsyncStorage.getItem(SEEN_STORAGE_KEY)
+      .then((stored) => {
+        if (stored) {
+          setSeenConversations(JSON.parse(stored));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const markConversationSeen = useCallback((conversationId) => {
+    setSeenConversations((prev) => {
+      const next = { ...prev, [conversationId]: new Date().toISOString() };
+      AsyncStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchConversations();
@@ -62,44 +134,70 @@ const ConversationsList = () => {
   );
 
   const renderConversationItem = ({ item }) => {
-    // Obtener usuario opuesto
-    const currentUserId = item.request_user_id;
-    const otherUser = currentUserId === item.request_user?.id 
-      ? item.offer_user 
-      : item.request_user;
-      
-    // Obtener último mensaje
-    const lastMessage = item.messages?.[0];
+    const currentUserId = user?.id ?? item.auth_user_id ?? item.current_user_id ?? null;
+    const requestUser = item.request_user;
+    const offerUser = item.offer_user;
+    const otherUser =
+      item.other_user ||
+      (currentUserId && requestUser?.id === currentUserId && offerUser ? offerUser : null) ||
+      (currentUserId && offerUser?.id === currentUserId && requestUser ? requestUser : null) ||
+      (item.request_user_id === requestUser?.id ? offerUser : requestUser) ||
+      offerUser ||
+      requestUser ||
+      null;
+
+    const productName = item.post?.title || 'Producto sin título';
+    const rawName = otherUser
+      ? `${otherUser?.name || ''} ${otherUser?.lastname || ''}`.trim()
+      : '';
+    const counterpartName = rawName || 'Usuario desconocido';
+    const notificationLabel = getNotificationLabel({
+      ...item,
+      lastSeenAt: seenConversations?.[item.id] || null,
+    });
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.conversationItem}
-        onPress={() => navigation.navigate('Chat', { conversationId: item.id })}
+        onPress={() => {
+          markConversationSeen(item.id);
+          navigation.navigate('Chat', { conversationId: item.id });
+        }}
       >
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>
-            {otherUser?.name?.[0]}{otherUser?.lastname?.[0]}
+            {otherUser?.name?.[0]}
+            {otherUser?.lastname?.[0]}
           </Text>
         </View>
 
         <View style={styles.textContainer}>
-          <Text style={[styles.userName, { fontFamily: 'Poppins-Bold' }]}>
-            {otherUser?.name} {otherUser?.lastname}
+          <View style={styles.headerRow}>
+            <Text
+              style={[styles.productName, { fontFamily: 'Poppins-Bold' }]}
+              numberOfLines={1}
+            >
+              {productName}
+            </Text>
+            <Text style={[styles.time, { fontFamily: 'Poppins-Regular' }]}>
+              {moment(item.created_at).format('LT')}
+            </Text>
+          </View>
+          <Text style={[styles.conversationLabel, { fontFamily: 'Poppins-Regular' }]}>
+            Conversación con:
           </Text>
-          <Text 
-            style={[styles.lastMessage, { fontFamily: 'Poppins-Regular' }]}
+          <Text
+            style={[styles.counterpartName, { fontFamily: 'Poppins-Regular' }]}
             numberOfLines={1}
           >
-            {lastMessage?.content || 'Nueva conversación'}
+            {counterpartName || 'Sin nombre'}
           </Text>
-          <Text style={[styles.productTitle, { fontFamily: 'Poppins-Regular' }]}>
-            {item.post?.title || 'Producto sin título'}
-          </Text>
+          {notificationLabel ? (
+            <Text style={[styles.notificationText, { fontFamily: 'Poppins-Bold' }]}>
+              {notificationLabel}
+            </Text>
+          ) : null}
         </View>
-
-        <Text style={[styles.time, { fontFamily: 'Poppins-Regular' }]}>
-          {moment(item.created_at).format('LT')}
-        </Text>
       </TouchableOpacity>
     );
   };
@@ -113,10 +211,10 @@ const ConversationsList = () => {
       <FlatList
         data={conversations}
         renderItem={renderConversationItem}
-        keyExtractor={(item, index) => (item && item.id != null ? item.id.toString() : index.toString())}
-        ListEmptyComponent={
-          <Text style={styles.empty}>No hay conversaciones activas</Text>
+        keyExtractor={(item, index) =>
+          item && item.id != null ? item.id.toString() : index.toString()
         }
+        ListEmptyComponent={<Text style={styles.empty}>No hay conversaciones activas</Text>}
         style={styles.list}
         contentContainerStyle={styles.listContent}
       />
@@ -179,20 +277,29 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
-  userName: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productName: {
+    flex: 1,
     fontSize: 16,
     color: '#333',
-    marginBottom: 2,
+    marginRight: 8,
   },
-  lastMessage: {
+  conversationLabel: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 2,
   },
-  productTitle: {
-    fontSize: 12,
-    color: '#888',
-    fontStyle: 'italic',
+  counterpartName: {
+    fontSize: 14,
+    color: '#444',
+    marginTop: 2,
+  },
+  notificationText: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#2f855a',
   },
   time: {
     fontSize: 12,

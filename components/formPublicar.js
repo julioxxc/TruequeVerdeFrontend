@@ -17,12 +17,13 @@ import axios from 'axios';
 import { useUser } from 'context/UserContext';
 import api from 'services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 
 const FormPublicar = () => {
   const { user } = useUser();
   const isFocused = useIsFocused();
+  const navigation = useNavigation();
   const mapRef = useRef(null);
 
   // Estados para formulario
@@ -176,6 +177,7 @@ const FormPublicar = () => {
       setConfirmedLocation(location);
       setConfirmedGreenPointId(null);
       setSelectionCandidate(null);
+      navigation.navigate('Home', { screen: 'CatalogoMain' });
     } catch (error) {
       console.error('Error al publicar:', error.response?.data || error.message);
       console.log("token", contextToken);

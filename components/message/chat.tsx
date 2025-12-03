@@ -1,6 +1,19 @@
 ﻿import { useState, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Animated, Alert, Modal } from 'react-native';
-import { Image } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Animated,
+  Alert,
+  Modal,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -48,6 +61,25 @@ export default function Chat({ route, navigation }: Props) {
   const pendingRatingStorageKey = `pendingRating:${conversationId}`;
   const finishedBarterPrefix = '__TRUEQUE_FINALIZADO__';
   const isPostOwner = conversation?.offer_user_id === user?.id;
+  const keyboardVerticalOffset = Platform.OS === 'ios' ? 0 : 0;
+  const insets = useSafeAreaInsets();
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardOpen(true);
+      setKeyboardHeight(e.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardOpen(false);
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [selectedRating, setSelectedRating] = useState<number>(0);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
@@ -445,7 +477,11 @@ export default function Chat({ route, navigation }: Props) {
     user.id === conversation.offer_user_id;
 
   return (
-    <View className="bg-gray-190 flex-1">
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={keyboardVerticalOffset}>
+      <View className="bg-gray-190 flex-1">
       {/* Encabezado */}
       <View className="p-4">
         <View className="flex-row items-center rounded-3xl bg-green-800 p-4 shadow-lg">
@@ -481,74 +517,81 @@ export default function Chat({ route, navigation }: Props) {
       </View>
 
       {/* Mensajes */}
-      <ScrollView className="flex-1 p-4 pb-40" contentContainerStyle={{ paddingBottom: 100 }}>
-        {isPostOwner && activeBarter && (
-          <View className="mb-4 items-center">
-            <View className="w-full rounded-3xl border border-gray-300 bg-white shadow-md">
-              <View className="items-center justify-center border-b border-gray-200 px-4 py-3">
-                <Text className="text-lg font-bold text-gray-800">Trueque en curso</Text>
-                {activeBarter.description ? (
-                  <Text className="mt-1 text-center text-sm text-gray-600" numberOfLines={2}>
-                    {activeBarter.description}
-                  </Text>
-                ) : null}
-              </View>
-              <View className="flex-row">
-                <TouchableOpacity
-                  className="flex-1 items-center border-r border-gray-200 py-3"
-                  onPress={handleShowBarterDetails}>
-                  <Text className="font-semibold text-gray-800">Detalles</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-1 items-center py-3"
-                  onPress={handleFinishBarter}>
-                  <Text className="font-semibold text-emerald-700">Finalizar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-        {!isPostOwner && pendingRating && (
-          <View className="mb-4 items-center">
-            <View className="w-full rounded-3xl border border-gray-300 bg-white shadow-md">
-              <View className="items-center justify-center border-b border-gray-200 px-4 py-3">
-                <Text className="text-lg font-bold text-gray-800">Calificacion pendiente</Text>
-                {pendingRating.description ? (
-                  <Text className="mt-1 text-center text-sm text-gray-600" numberOfLines={2}>
-                    {pendingRating.description}
-                  </Text>
-                ) : null}
-              </View>
-              <View className="flex-row">
-                <TouchableOpacity
-                  className="flex-1 items-center border-r border-gray-200 py-3"
-                  onPress={handleShowPendingRatingDetails}>
-                  <Text className="font-semibold text-gray-800">Detalles</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-1 items-center py-3"
-                  onPress={() => {
-                    setCounterpartRating(0);
-                    setCounterpartRatingModalVisible(true);
-                  }}>
-                  <Text className="font-semibold text-emerald-700">Calificar</Text>
-                </TouchableOpacity>
+      <View className="flex-1">
+        <ScrollView
+          className="flex-1 p-4"
+          contentContainerStyle={{
+            paddingBottom: keyboardOpen ? keyboardHeight + 60 : 80,
+          }}
+          keyboardShouldPersistTaps="handled">
+          {isPostOwner && activeBarter && (
+            <View className="mb-4 items-center">
+              <View className="w-full rounded-3xl border border-gray-300 bg-white shadow-md">
+                <View className="items-center justify-center border-b border-gray-200 px-4 py-3">
+                  <Text className="text-lg font-bold text-gray-800">Trueque en curso</Text>
+                  {activeBarter.description ? (
+                    <Text className="mt-1 text-center text-sm text-gray-600" numberOfLines={2}>
+                      {activeBarter.description}
+                    </Text>
+                  ) : null}
+                </View>
+                <View className="flex-row">
+                  <TouchableOpacity
+                    className="flex-1 items-center border-r border-gray-200 py-3"
+                    onPress={handleShowBarterDetails}>
+                    <Text className="font-semibold text-gray-800">Detalles</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="flex-1 items-center py-3"
+                    onPress={handleFinishBarter}>
+                    <Text className="font-semibold text-emerald-700">Finalizar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        )}
-        {messages.map((message) => (
-          <View
-            key={message.id}
-            className={`mb-2 max-w-[70%] rounded-xl p-3 ${
-              message.isMe
-                ? 'self-end rounded-br-none bg-green-500'
-                : 'self-start rounded-bl-none bg-gray-500'
-            }`}>
-            <Text className="text-white">{message.text}</Text>
-          </View>
-        ))}
-      </ScrollView>
+          )}
+          {!isPostOwner && pendingRating && (
+            <View className="mb-4 items-center">
+              <View className="w-full rounded-3xl border border-gray-300 bg-white shadow-md">
+                <View className="items-center justify-center border-b border-gray-200 px-4 py-3">
+                  <Text className="text-lg font-bold text-gray-800">Calificacion pendiente</Text>
+                  {pendingRating.description ? (
+                    <Text className="mt-1 text-center text-sm text-gray-600" numberOfLines={2}>
+                      {pendingRating.description}
+                    </Text>
+                  ) : null}
+                </View>
+                <View className="flex-row">
+                  <TouchableOpacity
+                    className="flex-1 items-center border-r border-gray-200 py-3"
+                    onPress={handleShowPendingRatingDetails}>
+                    <Text className="font-semibold text-gray-800">Detalles</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="flex-1 items-center py-3"
+                    onPress={() => {
+                      setCounterpartRating(0);
+                      setCounterpartRatingModalVisible(true);
+                    }}>
+                    <Text className="font-semibold text-emerald-700">Calificar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+          {messages.map((message) => (
+            <View
+              key={message.id}
+              className={`mb-2 max-w-[70%] rounded-xl p-3 ${
+                message.isMe
+                  ? 'self-end rounded-br-none bg-green-500'
+                  : 'self-start rounded-bl-none bg-gray-500'
+              }`}>
+              <Text className="text-white">{message.text}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Menú emergente */}
       {menuVisible && (
@@ -612,7 +655,11 @@ export default function Chat({ route, navigation }: Props) {
         </Animated.View>
       )}
       {/* Caja de mensaje */}
-      <View className="absolute bottom-5 left-0 right-0 flex-row items-center px-5">
+      <View
+        className="bg-transparent px-5 pb-6 pt-3 flex-row items-center"
+        style={{
+          marginBottom: Math.max(insets.bottom, 12) + (keyboardOpen ? keyboardHeight : 0),
+        }}>
         {/* Botón de + */}
         <TouchableOpacity onPress={toggleMenu} className="rounded-2xl bg-gray-300 p-5 mr-2">
           <Image
@@ -626,6 +673,7 @@ export default function Chat({ route, navigation }: Props) {
           value={inputText}
           onChangeText={setInputText}
           placeholder="Escribe un mensaje..."
+          multiline
         />
         <TouchableOpacity onPress={handleSend} className="rounded-2xl bg-green-500 p-5">
           <Image
@@ -634,8 +682,6 @@ export default function Chat({ route, navigation }: Props) {
             resizeMode="contain"
           />
         </TouchableOpacity>
-        {/* Espacio en blanco inferior */}
-        <View style={{ height: 110 }} />
       </View>
 
       <Modal
@@ -754,5 +800,6 @@ export default function Chat({ route, navigation }: Props) {
         </View>
       </Modal>
     </View>
+    </KeyboardAvoidingView>
   );
 }
