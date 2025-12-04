@@ -599,7 +599,7 @@ export default function Chat({ route, navigation }: Props) {
           style={[
             { transform: [{ translateY: menuTranslateY }] },
             {
-              bottom: 150,
+              bottom: 130,
               zIndex: 50,
               elevation: 50,
             },
