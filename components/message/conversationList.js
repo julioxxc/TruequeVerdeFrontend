@@ -22,13 +22,21 @@ const getNotificationLabel = (conversation) => {
   const lastSeenAtMs = conversation?.lastSeenAt
     ? new Date(conversation.lastSeenAt).getTime()
     : null;
+
   const getTimestamp = (value) => {
-    const date = value ? new Date(value) : null;
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') {
+      const num = value > 1e12 ? value : value * 1000; // segundos o ms
+      return Number.isFinite(num) ? num : null;
+    }
+    const date = new Date(value);
     return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : null;
   };
+
   const lastMessageMs =
-    getTimestamp(conversation?.updated_at) ||
+    getTimestamp(conversation?.last_message?.created_at) ||
     getTimestamp(conversation?.last_message_at) ||
+    getTimestamp(conversation?.updated_at) ||
     getTimestamp(messages[0]?.created_at) ||
     getTimestamp(messages[messages.length - 1]?.created_at) ||
     null;
@@ -51,13 +59,22 @@ const getNotificationLabel = (conversation) => {
     return 'Trueque establecido';
   }
 
-  const unreadCount = conversation?.unread_messages_count ?? conversation?.unread_count ?? 0;
+  const unreadCount =
+    conversation?.unread_messages_count ??
+    conversation?.unread_count ??
+    conversation?.unreadMessages ??
+    conversation?.unread_messages ??
+    conversation?.new_messages_count ??
+    conversation?.unseen_count ??
+    0;
+
   const hasUnread =
     hasNewSinceSeen ||
-    (lastSeenAtMs === null && (unreadCount > 0 || messages.length > 0));
+    unreadCount > 0 ||
+    (lastSeenAtMs === null && messages.length > 0);
 
   if (!messages.length && lastSeenAtMs === null) {
-    return 'Nueva conversación';
+    return 'Nueva conversacion';
   }
 
   if (hasUnread) {
@@ -146,7 +163,7 @@ const ConversationsList = () => {
       requestUser ||
       null;
 
-    const productName = item.post?.title || 'Producto sin título';
+    const productName = item.post?.title || 'Producto sin titulo';
     const rawName = otherUser
       ? `${otherUser?.name || ''} ${otherUser?.lastname || ''}`.trim()
       : '';
@@ -184,7 +201,7 @@ const ConversationsList = () => {
             </Text>
           </View>
           <Text style={[styles.conversationLabel, { fontFamily: 'Poppins-Regular' }]}>
-            Conversación con:
+            Conversacion con:
           </Text>
           <Text
             style={[styles.counterpartName, { fontFamily: 'Poppins-Regular' }]}

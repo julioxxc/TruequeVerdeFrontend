@@ -38,7 +38,7 @@ export default function BottomTabNavigator() {
         tabBarIcon: ({ color, size }) => {
           switch (route.name) {
             case 'Home':
-              return <MaterialIcons name="home" size={size} color={color} />;
+              return <MaterialIcons name="storefront" size={size} color={color} />;
             case 'Perfil':
               return <FontAwesome name="user" size={size} color={color} />;
             case 'Historial':

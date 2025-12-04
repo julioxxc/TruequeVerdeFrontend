@@ -598,7 +598,11 @@ export default function Chat({ route, navigation }: Props) {
         <Animated.View
           style={[
             { transform: [{ translateY: menuTranslateY }] },
-            { bottom: 100 },
+            {
+              bottom: 150,
+              zIndex: 50,
+              elevation: 50,
+            },
           ]}
           className="w-58 absolute p-6">
           {isOfferUser && (
