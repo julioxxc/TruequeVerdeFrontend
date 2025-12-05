@@ -284,7 +284,13 @@ export default function MapScreen() {
           </View>
         )}
       </View>
-      <MapView style={styles.map} initialRegion={initialRegion} showsUserLocation>
+      <MapView
+        style={styles.map}
+        initialRegion={initialRegion}
+        showsUserLocation
+        pointerEvents={showFilters ? 'none' : 'auto'}
+        scrollEnabled={!showFilters}
+        zoomEnabled={!showFilters}>
         {filterType !== 'posts' &&
           filteredGreenpoints.map((point) => (
             <Marker

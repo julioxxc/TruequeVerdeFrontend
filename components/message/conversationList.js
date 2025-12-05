@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -89,6 +90,7 @@ const ConversationsList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [seenConversations, setSeenConversations] = useState({});
+  const [authAlertShown, setAuthAlertShown] = useState(false);
   const navigation = useNavigation();
   const { user } = useUser();
 
@@ -97,12 +99,54 @@ const ConversationsList = () => {
     'Poppins-Bold': require('../../assets/fonts/Poppins-Bold.ttf'),
   });
 
+  const redirectToLogin = useCallback(() => {
+    const parentNav = navigation.getParent ? navigation.getParent() : null;
+    if (parentNav?.navigate) {
+      parentNav.navigate('Perfil', { screen: 'Login' });
+      return;
+    }
+    navigation.navigate('Perfil', { screen: 'Login' });
+  }, [navigation]);
+
+  const showLoginAlert = useCallback(() => {
+    Alert.alert(
+      'Sesion requerida',
+      'Necesitas iniciar sesion para acceder a esta funcion.',
+      [
+        { text: 'Iniciar sesion', onPress: redirectToLogin },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  }, [redirectToLogin]);
+
+  const handleNoSession = useCallback(() => {
+    setConversations([]);
+    setError(null);
+    setLoading(false);
+    if (!authAlertShown) {
+      setAuthAlertShown(true);
+      showLoginAlert();
+    }
+  }, [authAlertShown, showLoginAlert]);
+
+  useEffect(() => {
+    if (user) {
+      setAuthAlertShown(false);
+    }
+  }, [user]);
+
   const fetchConversations = useCallback(async () => {
+    if (!user) {
+      handleNoSession();
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        navigation.replace('Login');
+        handleNoSession();
         return;
       }
 
@@ -116,14 +160,14 @@ const ConversationsList = () => {
     } catch (err) {
       if (err?.response?.status === 401) {
         await AsyncStorage.removeItem('userToken');
-        navigation.replace('Login');
+        handleNoSession();
         return;
       }
       setError(err?.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
-  }, [navigation]);
+  }, [handleNoSession, navigation, user]);
 
   useEffect(() => {
     AsyncStorage.getItem(SEEN_STORAGE_KEY)
