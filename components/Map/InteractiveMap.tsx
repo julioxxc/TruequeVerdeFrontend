@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Button,
   TouchableOpacity,
   Platform,
-  ScrollView,
+  FlatList,
   Image,
   TextInput,
   Modal,
@@ -192,6 +192,29 @@ export default function MapScreen() {
     return dist <= rangeKm && categoryMatch && searchMatch;
   });
 
+  const categoryItems: { id: number | null; name: string }[] = [
+    ...categories.map((cat) => ({ id: cat.id, name: cat.name })),
+    { id: null, name: 'Todas' },
+  ];
+
+  const renderCategoryPill = ({ item }: { item: { id: number | null; name: string } }) => {
+    const isSelected = selectedCategoryId === item.id;
+
+    return (
+      <TouchableOpacity
+        onPress={() => setSelectedCategoryId(item.id)}
+        style={[
+          styles.categoryPill,
+          { backgroundColor: isSelected ? '#006400' : '#e0e0e0' },
+        ]}>
+        <Text
+          style={[styles.categoryPillText, { color: isSelected ? 'white' : '#333' }]}>
+          {item.id === null ? item.name : capitalizeFirstLetter(item.name)}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.topControls}>
@@ -231,44 +254,21 @@ export default function MapScreen() {
 
             {/* Slider Horizontal de Categorías */}
             <Text style={[styles.filterTitle, { marginTop: 10 }]}>Categorías:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => setSelectedCategoryId(cat.id)}
-                  style={{
-                    paddingVertical: 6,
-                    paddingHorizontal: 12,
-                    backgroundColor: selectedCategoryId === cat.id ? '#006400' : '#e0e0e0',
-                    borderRadius: 20,
-                    marginRight: 8,
-                  }}>
-                  <Text
-                    style={{
-                      color: selectedCategoryId === cat.id ? 'white' : '#333',
-                      fontWeight: 'bold',
-                    }}>
-                    {capitalizeFirstLetter(cat.name)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                onPress={() => setSelectedCategoryId(null)}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  backgroundColor: selectedCategoryId === null ? '#006400' : '#e0e0e0',
-                  borderRadius: 20,
-                }}>
-                <Text
-                  style={{
-                    color: selectedCategoryId === null ? 'white' : '#333',
-                    fontWeight: 'bold',
-                  }}>
-                  Todas
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
+            <View
+              style={styles.categoryScrollWrapper}
+              onStartShouldSetResponderCapture={() => true}
+            >
+              <FlatList
+                data={categoryItems}
+                renderItem={renderCategoryPill}
+                keyExtractor={(item) => (item.id === null ? 'all' : item.id?.toString())}
+                horizontal
+                scrollEnabled
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryList}
+              />
+            </View>
             <Text style={[styles.filterTitle, { marginTop: 10 }]}>Rango: {rangeKm} km</Text>
             <Slider
               style={{ width: 220, height: 40 }}
@@ -433,6 +433,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 6,
   },
+  categoryScrollWrapper: {
+    marginBottom: 10,
+  },
+  categoryList: {
+    paddingVertical: 6,
+    paddingRight: 12,
+    paddingLeft: 2,
+  },
+  categoryPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  categoryPillText: {
+    fontWeight: 'bold',
+  },
   topControls: {
     position: 'absolute',
     top: 20,
@@ -442,6 +459,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     zIndex: 100,
+    elevation: 6,
+    overflow: 'visible',
   },
 
   searchInput: {

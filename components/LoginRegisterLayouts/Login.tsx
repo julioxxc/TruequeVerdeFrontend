@@ -13,7 +13,7 @@ import { useUser } from 'context/UserContext';
 type RootStackParamList = {
   Register: undefined;
   Login: undefined;
-  Home:  { user: any; token: string };
+  HomeTabs:  { user: any; token: string };
   Profile: { userId: number }; // Ruta perfil publico 
 
 };
@@ -39,7 +39,7 @@ export default function LoginScreen() {
           if (isValid) {
             const storedUser = await AsyncStorage.getItem('userData');
             const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-            navigation.replace('Home', {
+            navigation.replace('HomeTabs', {
               user: parsedUser,
               token: token,
             });
@@ -113,7 +113,7 @@ export default function LoginScreen() {
       if (!isValid) {
         throw new Error('Token no válido');
       }
-      navigation.replace('Home', {
+      navigation.replace('HomeTabs', {
         user: response.user,
         token: response.token,
       });
