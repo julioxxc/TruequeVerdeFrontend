@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,14 +13,11 @@ import {
   Modal,
   useColorScheme,
 } from 'react-native';
-import MapView, { Marker, Region, Callout } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import Slider from '@react-native-community/slider';
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
-
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { useNavigation } from '@react-navigation/native';
 
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -99,21 +96,17 @@ export default function MapScreen() {
       const response = await fetch('http://192.168.1.72:8000/api/map/all');
       const data = await response.json();
 
-      // Redondear coordenadas en posts
       const postsRounded = (data.posts || []).map((post: any) => ({
         ...post,
         latitude: roundCoord(post.latitude),
         longitude: roundCoord(post.longitude),
       }));
-      console.log('Posts redondeados:', postsRounded);
 
-      // Redondear coordenadas en greenpoints
       const greenpointsRounded = (data.greenpoints || []).map((point: any) => ({
         ...point,
         latitude: roundCoord(point.latitude),
         longitude: roundCoord(point.longitude),
       }));
-      console.log('Greenpoints redondeados:', greenpointsRounded);
 
       setPosts(postsRounded);
       setGreenpoints(greenpointsRounded);
@@ -127,7 +120,6 @@ export default function MapScreen() {
     useCallback(() => {
       getLocation();
       fetchGreenpoints();
-      // Opcional: resetear filtros si también quieres que se reinicien
       setFilterType('all');
       setRangeKm(5);
       setSelectedCategoryId(null);
@@ -180,7 +172,6 @@ export default function MapScreen() {
       parseFloat(post.latitude),
       parseFloat(post.longitude)
     );
-    //console.log(`Post ${post.id} - Distancia: ${dist} km`);
 
     const categoryMatch = selectedCategoryId ? post.category_id === selectedCategoryId : true;
 
@@ -217,7 +208,7 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topControls}>
+      <View style={styles.topControls} pointerEvents="box-none">
         <TextInput
           placeholder="Buscar por título o descripción"
           placeholderTextColor="#999"
@@ -230,9 +221,11 @@ export default function MapScreen() {
           style={styles.dropdownButton}>
           <Text style={{ color: 'white', fontWeight: 'bold' }}>Filtros</Text>
         </TouchableOpacity>
+      </View>
 
-        {showFilters && (
-          <View style={styles.dropdownContent}>
+      {showFilters && (
+        <View style={styles.filtersOverlay} pointerEvents="box-none">
+          <View style={styles.dropdownContent} pointerEvents="auto">
             <Text style={styles.filterTitle}>Tipo de marcador:</Text>
             <View style={styles.buttonsRow}>
               <Button
@@ -252,12 +245,8 @@ export default function MapScreen() {
               />
             </View>
 
-            {/* Slider Horizontal de Categorías */}
             <Text style={[styles.filterTitle, { marginTop: 10 }]}>Categorías:</Text>
-            <View
-              style={styles.categoryScrollWrapper}
-              onStartShouldSetResponderCapture={() => true}
-            >
+            <View style={styles.categoryScrollWrapper}>
               <FlatList
                 data={categoryItems}
                 renderItem={renderCategoryPill}
@@ -267,8 +256,10 @@ export default function MapScreen() {
                 nestedScrollEnabled
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoryList}
+                style={styles.categoryListContainer}
               />
             </View>
+
             <Text style={[styles.filterTitle, { marginTop: 10 }]}>Rango: {rangeKm} km</Text>
             <Slider
               style={{ width: 220, height: 40 }}
@@ -282,8 +273,9 @@ export default function MapScreen() {
               onValueChange={setRangeKm}
             />
           </View>
-        )}
-      </View>
+        </View>
+      )}
+
       <MapView
         style={styles.map}
         initialRegion={initialRegion}
@@ -301,7 +293,6 @@ export default function MapScreen() {
               }}
               pinColor="green"
               onPress={() => {
-                console.log('Punto verde seleccionado:', point);
                 setSelectedMarker({ ...point, type: 'greenpoint' });
               }}
             />
@@ -315,18 +306,16 @@ export default function MapScreen() {
                 latitude: parseFloat(post.latitude),
                 longitude: parseFloat(post.longitude),
               }}
-              onPress={() => setSelectedMarker({ ...post, type: 'post' })}
-            >
-              <View style={{ 
-                backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 'transparent',
-                borderRadius: 15,
-                padding: 4,
-                elevation: 3
-              }}>
-                <Image
-                  source={getCategoryIcon(post.category_name)}
-                  style={{ width: 22, height: 22 }}
-                />
+              onPress={() => setSelectedMarker({ ...post, type: 'post' })}>
+              <View
+                style={{
+                  backgroundColor:
+                    colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 'transparent',
+                  borderRadius: 15,
+                  padding: 4,
+                  elevation: 3,
+                }}>
+                <Image source={getCategoryIcon(post.category_name)} style={{ width: 22, height: 22 }} />
               </View>
             </Marker>
           ))}
@@ -336,7 +325,6 @@ export default function MapScreen() {
         <Button title="Actualizar ubicación" onPress={getLocation} color="#006400" />
       </View>
 
-      {/* Modal personalizado para mostrar info del marcador */}
       <Modal visible={!!selectedMarker} transparent animationType="fade">
         <TouchableOpacity
           style={styles.modalOverlay}
@@ -369,19 +357,17 @@ export default function MapScreen() {
                 <TouchableOpacity
                   style={styles.closeModalButton}
                   onPress={() => {
-                    // Navegar al catálogo y pasar el id para que abra la publicación
-                    // Navegación anidada: ir a la pestaña 'Home' y al screen 'CatalogoMain'
-                    navigation.navigate('Home', { screen: 'CatalogoMain', params: { openPostId: selectedMarker?.id } });
+                    navigation.navigate('Home', {
+                      screen: 'CatalogoMain',
+                      params: { openPostId: selectedMarker?.id },
+                    });
                     setSelectedMarker(null);
-                  }}
-                >
+                  }}>
                   <Text style={styles.closeModalText}>Ver publicación</Text>
                 </TouchableOpacity>
               </>
             )}
-            <TouchableOpacity
-              style={styles.closeModalButton}
-              onPress={() => setSelectedMarker(null)}>
+            <TouchableOpacity style={styles.closeModalButton} onPress={() => setSelectedMarker(null)}>
               <Text style={styles.closeModalText}>Cerrar</Text>
             </TouchableOpacity>
           </View>
@@ -415,15 +401,27 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   dropdownContent: {
-    position: 'absolute',
-    top: 50, // justo debajo del topControls
-    left: 20,
-    right: 20,
     backgroundColor: 'white',
     padding: 10,
     borderRadius: 8,
-    zIndex: 99,
+    zIndex: 150,
     elevation: 5,
+    marginHorizontal: 20,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  filtersOverlay: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 150,
+    elevation: 10,
+    paddingBottom: 10,
   },
   buttonsRow: {
     flexDirection: 'row',
@@ -440,6 +438,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingRight: 12,
     paddingLeft: 2,
+  },
+  categoryListContainer: {
+    width: '100%',
   },
   categoryPill: {
     paddingVertical: 6,
@@ -462,7 +463,6 @@ const styles = StyleSheet.create({
     elevation: 6,
     overflow: 'visible',
   },
-
   searchInput: {
     flex: 1,
     backgroundColor: 'white',

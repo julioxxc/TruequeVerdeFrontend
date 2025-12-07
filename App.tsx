@@ -3,6 +3,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from 'navigation/BottomTabNavigator';
 import { UserProvider } from 'context/UserContext';
+import LoginScreen from 'components/LoginRegisterLayouts/Login';
+import RegisterScreen from 'components/LoginRegisterLayouts/Register';
 
 const Stack = createNativeStackNavigator();
 
@@ -10,11 +12,13 @@ export default function App() {
   return (
     <>
     <UserProvider>
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="BottomTabNavigator" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="BottomTabNavigator" component={BottomTabNavigator} options={{ headerShown: false }} />
-      </Stack.Navigator>
-    </NavigationContainer>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="HomeTabs" component={BottomTabNavigator} />
+        </Stack.Navigator>
+      </NavigationContainer>
     </UserProvider>
     </>
   );
