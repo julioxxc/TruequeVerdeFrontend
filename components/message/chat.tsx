@@ -29,6 +29,7 @@ type ActiveBarterBanner = {
 };
 
 type RootStackParamList = {
+  HistoryChat: undefined;
   Chat: { conversationId: number; activeBarter?: ActiveBarterBanner };
   BarterScreen: { conversationId: number; postId: number };
   PublicProfile: { userId: number };
@@ -476,6 +477,27 @@ export default function Chat({ route, navigation }: Props) {
     conversation.post_id !== undefined &&
     user.id === conversation.offer_user_id;
 
+  const handleBack = useCallback(() => {
+    const state: any = navigation.getState?.();
+    const hasHistoryChat =
+      state && Array.isArray(state?.routeNames) && state.routeNames.includes('HistoryChat');
+
+    if (hasHistoryChat) {
+      navigation.navigate('HistoryChat');
+      return;
+    }
+
+    const parentNav = navigation.getParent?.();
+    if (parentNav?.navigate) {
+      parentNav.navigate('Historial', { screen: 'HistoryChat' });
+      return;
+    }
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [navigation]);
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -485,7 +507,7 @@ export default function Chat({ route, navigation }: Props) {
       {/* Encabezado */}
       <View className="p-4">
         <View className="flex-row items-center rounded-3xl bg-green-800 p-4 shadow-lg">
-          <TouchableOpacity className="p-2" onPress={() => navigation.goBack()}>
+          <TouchableOpacity className="p-2" onPress={handleBack}>
             <Image
               source={require('../../assets/back-icon.png')}
               className="h-6 w-6"

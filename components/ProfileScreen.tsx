@@ -45,16 +45,23 @@ const HomeScreen = ({ navigation }) => {
     try {
       await AsyncStorage.multiRemove(['userToken', 'userData']);
       await logout();
-      navigation.reset({
+
+      // Volver al login (ventana de inicio)
+      const rootNav = navigation.getParent?.()?.getParent?.() || navigation;
+      rootNav.reset({
         index: 0,
         routes: [{ name: 'Login' }],
       });
-      Alert.alert('Sesión cerrada', 'Has salido de tu cuenta correctamente');
+
+      Alert.alert('Sesion cerrada', 'Has salido de tu cuenta correctamente');
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      Alert.alert('Error', 'No se pudo cerrar la sesión');
+      console.error('Error al cerrar sesion:', error);
+      Alert.alert('Error', 'No se pudo cerrar la sesion');
     }
   };
+
+
+
 
   useEffect(() => {
     fetchProfileAndPosts(true);

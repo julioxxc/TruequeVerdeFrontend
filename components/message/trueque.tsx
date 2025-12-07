@@ -225,6 +225,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
 
       const parsedUnitId = unitId ? Number(unitId) : null;
       const parsedAmount = amount ? Number(amount) : null;
+      const coordsToSend = confirmedLocation || selectedLocation || location;
 
       const response = await axios.post(
         'http://192.168.1.72:8000/api/barters',
@@ -237,6 +238,8 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
           amount: parsedAmount,
           greenpoint_id: selectedGreenPointId,
           status_id: 1,
+          latitude: coordsToSend?.latitude ?? null,
+          longitude: coordsToSend?.longitude ?? null,
         },
         {
           headers: {
