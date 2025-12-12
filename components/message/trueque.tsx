@@ -267,7 +267,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
       }
 
       Alert.alert('Éxito', 'Intercambio creado correctamente');
-      navigation.navigate('Chat', { conversationId, activeBarter: barterBanner });
+      navigation.replace('Chat', { conversationId, activeBarter: barterBanner });
       console.log('Respuesta:', response.data);
     } catch (error: any) {
       if (axios.isAxiosError(error)) {

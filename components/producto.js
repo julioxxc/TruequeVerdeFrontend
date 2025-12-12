@@ -416,11 +416,14 @@ const styles = StyleSheet.create({
   messageContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   messageInput: {
     flex: 1,
-    height: 40,
+    height: 48,
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 15,
+    paddingVertical: 8,
+    fontSize: 16,
+    textAlignVertical: 'center',
     backgroundColor: '#f9f9f9',
   },
   sendButton: {
