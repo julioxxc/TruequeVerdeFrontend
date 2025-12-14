@@ -7,6 +7,7 @@ import StateCityPicker from './CiudadEstado';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import api from 'services/api';
+import { Alert } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -67,12 +68,78 @@ const [selectedCityId, setSelectedCityId] = useState(null);
 const [selectedCityName, setSelectedCityName] = useState('');
 const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
 
+const isValidEmail = (email: string) => {
+  const emailRegex =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return emailRegex.test(email);
+};
+
+const handleLaravelErrors = (errors: any) => {
+  let messages: string[] = [];
+
+  Object.keys(errors).forEach((field) => {
+    errors[field].forEach((message: string) => {
+      messages.push(`• ${message}`);
+    });
+  });
+
+  Alert.alert(
+    'Error en el registro',
+    messages.join('\n')
+  );
+};
+
+const validateForm = () => {
+  //if (!form.firstName.trim()) {
+  //  Alert.alert('Error', 'El nombre es obligatorio');
+  //  return false;
+  //}
+
+  //if (!form.email.trim()) {
+  //  Alert.alert('Error', 'El correo electrónico es obligatorio');
+  //  return false;
+  //}
+
+  //if (!isValidEmail(form.email)) {
+  //  Alert.alert(
+  //    'Correo inválido',
+  //    'Ingresa un correo electrónico con un formato válido\nEjemplo: usuario@correo.com'
+  //  );
+  // return false;
+  //}
+
+  //if (form.password.length < 8) {
+  //  Alert.alert('Error', 'La contraseña debe tener al menos 8 caracteres');
+  //  return false;
+  //}
+
+  //if (form.password !== form.password_confirmation) {
+  //  Alert.alert('Error', 'Las contraseñas no coinciden');
+  //  return false;
+  //}
+
+  //if (!form.birthdate) {
+  //  Alert.alert('Error', 'Selecciona tu fecha de nacimiento');
+  //  return false;
+  //}
+
+  //if (!selectedCityId) {
+  // Alert.alert('Error', 'Selecciona un estado y una ciudad');
+  //  return false;
+  //}
+
+  return true;
+};
+
 
   const handleChange = (field: string, value: string | null) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
+    if (!validateForm()) return;
+
     try {
       console.log('Datos a enviar:', form); // <-- Agrega esto para depurar
       const response = await api.post('/register', {
@@ -95,7 +162,7 @@ const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
         longitude: "0.0",
         pfp: "null",
         city_id: Number(selectedCityId),
-      city: String(selectedCityId), // <-- ¡este es el que faltaba!
+      city: String(selectedCityId), 
       state: form.selectedStateId, // Assuming 'state' refers to the selected state ID
         is_active: true,
         verified: false,
@@ -103,11 +170,11 @@ const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
 
       console.log('Registro exitoso:', response.data);
       navigation.navigate('Login');
-    } catch (error) {
-      if (error.response) {
-        console.log('Error en la respuesta:', error.response.data);
+    } catch (error: any) {
+      if (error.response?.status === 422) {
+        handleLaravelErrors(error.response.data.errors);
       } else {
-        console.log('Error en la red:', error.message);
+        Alert.alert('Error', 'Ocurrió un error inesperado');
       }
     }
   };
