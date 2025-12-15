@@ -28,6 +28,9 @@ const FormPublicar = () => {
 
   // Estados para formulario
   const [producto, setProducto] = useState('');
+  const [items, setItems] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [selectedCambioId, setSelectedCambioId] = useState(null);
   const { logout, token: contextToken } = useUser();
   const [descripcion, setDescripcion] = useState('');
   const [cambioPor, setCambioPor] = useState('');
@@ -104,8 +107,16 @@ const FormPublicar = () => {
           longitude: parseFloat(point.longitude),
         }));
         setGreenpoints(points);
+
+        // Mapear elementos (items) para poblar Pickers si vienen en la respuesta
+        const elements = (data.elements || []).map((element) => ({
+          id: element.element_id,
+          name: element.element_name,
+          category: element.category_name,
+        }));
+        setItems(elements);
       } catch (error) {
-        console.log('Error al obtener puntos verdes:', error.message);
+        console.log('Error al obtener puntos verdes o items:', error.message);
       }
     };
 
@@ -128,8 +139,8 @@ const FormPublicar = () => {
       Alert.alert('Inicia sesión', 'Debes iniciar sesión para publicar un producto.');
       return;
     }
-    if (!producto || !descripcion || !cambioPor || !categoria) {
-      alert('Por favor completa todos los campos incluyendo la categoría');
+    if (!selectedProductId || !descripcion || !selectedCambioId || !categoria) {
+      alert('Por favor completa todos los campos: producto, descripción, cambio y categoría');
       return;
     }
     if (!confirmedLocation) {
@@ -146,7 +157,9 @@ const FormPublicar = () => {
     formData.append('latitude', confirmedLocation.latitude.toString());
     formData.append('longitude', confirmedLocation.longitude.toString());
     formData.append('green_point_id', confirmedGreenPointId || 1);
-    formData.append('item_id', 1);
+    formData.append('item_id', selectedProductId || 1);
+    // Enviamos también el id del item por el que se cambia (opcional, si el backend lo acepta)
+    if (selectedCambioId) formData.append('cambiar_por_item_id', selectedCambioId);
     formData.append('status_id', 1);
     formData.append('user_id', user.id);
     formData.append('category_name', categoria);
@@ -254,12 +267,21 @@ const FormPublicar = () => {
           </Text>
         )}
         <Text style={styles.label}>Nombre del Producto</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej. Manzanas"
-          value={producto}
-          onChangeText={setProducto}
-        />
+        <View style={{ backgroundColor: '#fff', borderRadius: 15, marginBottom: 15, elevation: 2 }}>
+          <Picker
+            selectedValue={selectedProductId}
+            onValueChange={(val) => {
+              setSelectedProductId(val);
+              const sel = items.find((i) => i.id === val);
+              setProducto(sel ? sel.name : '');
+            }}
+            style={{ height: 50, width: '100%' }}>
+            <Picker.Item label="Selecciona un producto..." value={null} />
+            {items.map((it) => (
+              <Picker.Item key={it.id} label={it.name} value={it.id} />
+            ))}
+          </Picker>
+        </View>
         <Text style={styles.label}>Descripción</Text>
         <TextInput
           style={[styles.input, { height: 80 }]}
@@ -278,12 +300,21 @@ const FormPublicar = () => {
           ))}
         </ScrollView>
         <Text style={styles.label}>Cambio por</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Qué deseas recibir a cambio?"
-          value={cambioPor}
-          onChangeText={setCambioPor}
-        />
+        <View style={{ backgroundColor: '#fff', borderRadius: 15, marginBottom: 15, elevation: 2 }}>
+          <Picker
+            selectedValue={selectedCambioId}
+            onValueChange={(val) => {
+              setSelectedCambioId(val);
+              const sel = items.find((i) => i.id === val);
+              setCambioPor(sel ? sel.name : '');
+            }}
+            style={{ height: 50, width: '100%' }}>
+            <Picker.Item label="Selecciona un producto..." value={null} />
+            {items.map((it) => (
+              <Picker.Item key={`c-${it.id}`} label={it.name} value={it.id} />
+            ))}
+          </Picker>
+        </View>
         <Text style={styles.label}>Categoría</Text>
         <View style={{ backgroundColor: '#fff', borderRadius: 15, marginBottom: 15, elevation: 2 }}>
           <Picker

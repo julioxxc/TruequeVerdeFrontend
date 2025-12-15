@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, TextInput, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import MapView, { MapPressEvent, Marker, MarkerDragEndEvent } from 'react-native-maps';
 import { ArrowLeft } from 'phosphor-react-native';
 import axios from 'axios';
@@ -45,6 +46,8 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
   const [producto, setProducto] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
   const [cambioPor, setCambioPor] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedCambioId, setSelectedCambioId] = useState<number | null>(null);
   const { postId, conversationId } = route.params;
   const [token, setToken] = useState<string | null>(null);
   const [items, setItems] = useState<{ id: number; name: string; category?: string }[]>([]);
@@ -190,8 +193,8 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
 
   const enviarFormulario = async () => {
     try {
-      if (!producto.trim() || !cambioPor.trim()) {
-        Alert.alert('Datos incompletos', 'Ingresa el producto a cambiar y lo que solicitas.');
+      if (!selectedProductId || !selectedCambioId) {
+        Alert.alert('Datos incompletos', 'Selecciona el producto ofrecido y el solicitado.');
         return;
       }
 
@@ -200,26 +203,17 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
         return;
       }
 
-      const normalizedProducto = normalizeText(producto);
-      const normalizedCambioPor = normalizeText(cambioPor);
-
-      const exactOffer = items.find((item) => normalizeText(item.name) === normalizedProducto);
-      const exactRequest = items.find((item) => normalizeText(item.name) === normalizedCambioPor);
-
-      const similarOffer =
-        exactOffer ||
-        items.find((item) => normalizeText(item.name).includes(normalizedProducto) || normalizedProducto.includes(normalizeText(item.name)));
-      const similarRequest =
-        exactRequest ||
-        items.find((item) => normalizeText(item.name).includes(normalizedCambioPor) || normalizedCambioPor.includes(normalizeText(item.name)));
+      // Preferir ids seleccionados
+      const similarOffer = items.find((item) => item.id === selectedProductId) || null;
+      const similarRequest = items.find((item) => item.id === selectedCambioId) || null;
 
       if (!similarOffer) {
-        Alert.alert('No encontrado', 'No se encontró un item ofrecido que coincida (ni parecido) en la base de datos.');
+        Alert.alert('No encontrado', 'No se encontró el item ofrecido en la base de datos.');
         return;
       }
 
       if (!similarRequest) {
-        Alert.alert('No encontrado', 'No se encontró un item solicitado que coincida (ni parecido) en la base de datos.');
+        Alert.alert('No encontrado', 'No se encontró el item solicitado en la base de datos.');
         return;
       }
 
@@ -329,12 +323,21 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
       <ScrollView className="mt-9" contentContainerStyle={{ paddingBottom: 56 }}>
         {/* Producto a Cambiar */}
         <Text className="mb-1 text-lg font-semibold">Producto a Cambiar</Text>
-        <TextInput
-          className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
-          placeholder="Nombre del producto"
-          value={producto}
-          onChangeText={setProducto}
-        />
+        <View className="mb-4 rounded-full bg-gray-300">
+          <Picker
+            selectedValue={selectedProductId}
+            onValueChange={(val) => {
+              setSelectedProductId(val as number | null);
+              const sel = items.find((i) => i.id === val);
+              setProducto(sel ? sel.name : '');
+            }}
+            style={{ height: 50, width: '100%' }}>
+            <Picker.Item label="Selecciona un producto..." value={null} />
+            {items.map((it) => (
+              <Picker.Item key={it.id} label={it.name} value={it.id} />
+            ))}
+          </Picker>
+        </View>
 
         <Text className="mb-1 text-lg font-semibold">Unidad y cantidad</Text>
         <View className="mb-4 flex-row items-center space-x-2">
@@ -373,14 +376,23 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
           onChangeText={setDescripcion}
         />
 
-{/* Cambio por */}
+        {/* Cambio por */}
         <Text className="mb-1 text-lg font-semibold">Cambio por</Text>
-        <TextInput
-          className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
-          placeholder="Que deseas cambiar por el producto"
-          value={cambioPor}
-          onChangeText={setCambioPor}
-        />
+        <View className="mb-4 rounded-full bg-gray-300">
+          <Picker
+            selectedValue={selectedCambioId}
+            onValueChange={(val) => {
+              setSelectedCambioId(val as number | null);
+              const sel = items.find((i) => i.id === val);
+              setCambioPor(sel ? sel.name : '');
+            }}
+            style={{ height: 50, width: '100%' }}>
+            <Picker.Item label="Selecciona un producto..." value={null} />
+            {items.map((it) => (
+              <Picker.Item key={`c-${it.id}`} label={it.name} value={it.id} />
+            ))}
+          </Picker>
+        </View>
 
         {/* Ubicación seleccionada */}
         <Text className="mb-1 text-lg font-semibold">Ubicación seleccionada</Text>
