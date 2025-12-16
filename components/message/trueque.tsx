@@ -15,6 +15,9 @@ type ActiveBarterBanner = {
   request: string;
   description?: string | null;
   greenpointId?: number | null;
+  amount?: number | null;
+  unit?: string | null;
+  unitId?: number | null;
 };
 
 type BarterStackParamList = {
@@ -53,6 +56,11 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
   const [items, setItems] = useState<{ id: number; name: string; category?: string }[]>([]);
   const [unitId, setUnitId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
+  const unitOptions = [
+    { id: 1, label: 'Piezas' },
+    { id: 2, label: 'Kilos' },
+    { id: 3, label: 'Gramos' },
+  ];
   const mapRef = useRef<MapView | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [location, setLocation] = useState<Coordinates | null>(null);
@@ -249,6 +257,9 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
         request: cambioPor.trim(),
         description: descripcion.trim() || null,
         greenpointId: selectedGreenPointId,
+        amount: parsedAmount ?? null,
+        unitId: parsedUnitId ?? null,
+        unit: unitOptions.find((u) => u.id === parsedUnitId)?.label ?? null,
       };
 
       try {

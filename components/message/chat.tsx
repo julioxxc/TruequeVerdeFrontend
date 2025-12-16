@@ -26,6 +26,9 @@ type ActiveBarterBanner = {
   request: string;
   description?: string | null;
   greenpointId?: number | null;
+  amount?: number | null;
+  unit?: string | null;
+  unitId?: number | null;
 };
 
 type RootStackParamList = {
@@ -88,6 +91,7 @@ export default function Chat({ route, navigation }: Props) {
   const [counterpartRatingModalVisible, setCounterpartRatingModalVisible] = useState(false);
   const [counterpartRating, setCounterpartRating] = useState(0);
   const [isSubmittingCounterpartRating, setIsSubmittingCounterpartRating] = useState(false);
+  const [units, setUnits] = useState<{ id: number; name: string }[]>([]);
 
   const handleUnauthorized = async () => {
     await AsyncStorage.removeItem('userToken');
@@ -98,6 +102,22 @@ export default function Chat({ route, navigation }: Props) {
     (barterId: number | string) => `ratedBarter:${conversationId}:${barterId}`,
     [conversationId]
   );
+
+  const getUnitNameById = useCallback((unitId: number | null) => {
+    if (!unitId) return null;
+    const unit = units.find((u) => u.id === unitId);
+    return unit?.name ?? null;
+  }, [units]);
+
+  const fetchUnits = async () => {
+    try {
+      const { data } = await api.get('/units');
+      const unitsList = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+      setUnits(unitsList);
+    } catch (error) {
+      console.log('Error al obtener unidades:', error);
+    }
+  };
 
   const fetchConversation = async (conversationId: number) => {
     try {
@@ -144,16 +164,19 @@ export default function Chat({ route, navigation }: Props) {
         const parsed = JSON.parse(rawPayload);
         if (!parsed?.id) return;
 
-        const alreadyRated = await AsyncStorage.getItem(ratedBarterKey(parsed.id));
+          const alreadyRated = await AsyncStorage.getItem(ratedBarterKey(parsed.id));
         if (alreadyRated) return;
 
-        const pending: ActiveBarterBanner = {
-          id: parsed.id,
-          offer: parsed.offer || '',
-          request: parsed.request || '',
-          description: parsed.description || null,
-          greenpointId: parsed.greenpointId ?? null,
-        };
+          const pending: ActiveBarterBanner = {
+            id: parsed.id,
+            offer: parsed.offer || '',
+            request: parsed.request || '',
+            description: parsed.description || null,
+            greenpointId: parsed.greenpointId ?? null,
+            amount: parsed.amount ?? null,
+            unitId: parsed.unitId ?? null,
+            unit: parsed.unit ?? parsed.unitLabel ?? null,
+          };
 
         if (pendingRating?.id === pending.id) return;
 
@@ -211,6 +234,12 @@ export default function Chat({ route, navigation }: Props) {
     }
   };
 
+  const unitLabels = {
+    1: 'Piezas',
+    2: 'Kilos',
+    3: 'Gramos',
+  };
+
   const loadActiveBarter = useCallback(async () => {
     if (!isPostOwner) {
       setActiveBarter(null);
@@ -219,7 +248,48 @@ export default function Chat({ route, navigation }: Props) {
     try {
       const stored = await AsyncStorage.getItem(barterStorageKey);
       if (stored) {
-        setActiveBarter(JSON.parse(stored));
+        let parsed = JSON.parse(stored) as ActiveBarterBanner;
+
+        const missingAmountOrUnit =
+          (parsed.amount === null || parsed.amount === undefined || !parsed.unit) && parsed.id;
+
+        if (missingAmountOrUnit) {
+          try {
+            const { data } = await api.get(`/barters/${parsed.id}`);
+            const serverBarter = data?.data ?? data ?? {};
+
+            parsed = {
+              ...parsed,
+              amount: parsed.amount ?? serverBarter.amount ?? null,
+              unitId: parsed.unitId ?? serverBarter.unit_id ?? serverBarter.unitId ?? null,
+              unit:
+                parsed.unit ??
+                serverBarter.unit?.name ??
+                serverBarter.unit?.label ??
+                serverBarter.unit_label ??
+                serverBarter.unit_name ??
+                null,
+            };
+
+            // If we still don't have a unit label but we have a unitId, try to get it from local units
+            if ((!parsed.unit || parsed.unit === null) && parsed.unitId && units.length > 0) {
+              const unitName = getUnitNameById(parsed.unitId);
+              if (unitName) {
+                parsed.unit = unitName;
+              }
+            }
+
+            try {
+              await AsyncStorage.setItem(barterStorageKey, JSON.stringify(parsed));
+            } catch (sErr) {
+              console.log('No se pudo actualizar el trueque en storage:', sErr);
+            }
+          } catch (apiErr) {
+            console.log('No se pudo obtener detalles del trueque desde la API:', apiErr);
+          }
+        }
+
+        setActiveBarter(parsed);
       } else {
         setActiveBarter(null);
       }
@@ -285,8 +355,12 @@ export default function Chat({ route, navigation }: Props) {
 
   const handleShowBarterDetails = () => {
     if (!activeBarter) return;
+    const offerLine = activeBarter.offer
+      ? `Ofreces: ${activeBarter.offer}${activeBarter.amount ? ` — ${activeBarter.amount} ${unitLabels[activeBarter.unitId] ?? ''}` : ''}`
+      : '';
+
     const summary = [
-      activeBarter.offer ? `Ofreces: ${activeBarter.offer}` : '',
+      offerLine,
       activeBarter.request ? `Solicitas: ${activeBarter.request}` : '',
       activeBarter.description ? `Notas: ${activeBarter.description}` : '',
     ]
@@ -298,8 +372,12 @@ export default function Chat({ route, navigation }: Props) {
 
   const handleShowPendingRatingDetails = () => {
     if (!pendingRating) return;
+    const offerLine = pendingRating.offer
+      ? `Ofrecido: ${pendingRating.offer}${pendingRating.amount ? ` — ${pendingRating.amount} ${pendingRating.unit ?? ''}` : ''}`
+      : '';
+
     const summary = [
-      pendingRating.offer ? `Ofrecido: ${pendingRating.offer}` : '',
+      offerLine,
       pendingRating.request ? `Solicitado: ${pendingRating.request}` : '',
       pendingRating.description ? `Notas: ${pendingRating.description}` : '',
     ]
@@ -462,6 +540,7 @@ export default function Chat({ route, navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
+      fetchUnits();
       fetchConversation(conversationId);
       fetchMessages(conversationId);
       loadActiveBarter();
