@@ -13,6 +13,7 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -94,6 +95,16 @@ export default function Chat({ route, navigation }: Props) {
   const [isSubmittingCounterpartRating, setIsSubmittingCounterpartRating] = useState(false);
   const [units, setUnits] = useState<{ id: number; name: string }[]>([]);
   const [isCancellingBarter, setIsCancellingBarter] = useState(false);
+  const [editBarterModalVisible, setEditBarterModalVisible] = useState(false);
+  const [editProduct, setEditProduct] = useState<string>('');
+  const [editCambio, setEditCambio] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
+  const [editUnitId, setEditUnitId] = useState<number | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [selectedProductIdEdit, setSelectedProductIdEdit] = useState<number | null>(null);
+  const [selectedCambioIdEdit, setSelectedCambioIdEdit] = useState<number | null>(null);
+  const [items, setItems] = useState<{ id: number; name: string; category?: string }[]>([]);
 
   const handleUnauthorized = async () => {
     await AsyncStorage.removeItem('userToken');
@@ -387,6 +398,102 @@ export default function Chat({ route, navigation }: Props) {
       setMenuVisible(false);
     }
   }, [activeBarter, clearActiveBarter, handleUnauthorized]);
+
+  const handleOpenEditBarterModal = useCallback(async () => {
+    if (!activeBarter) return;
+    
+    setMenuVisible(false);
+    
+    // Si los items no están cargados, cargarlos
+    if (items.length === 0) {
+      try {
+        const { data } = await api.get('/map/all');
+        const elements = (data.elements || []).map((element: any) => ({
+          id: element.element_id,
+          name: element.element_name,
+          category: element.category_name,
+        }));
+        setItems(elements);
+      } catch (error) {
+        console.log('Error al obtener items:', error);
+      }
+    }
+    
+    setSelectedProductIdEdit(null);
+    setSelectedCambioIdEdit(null);
+    setEditProduct(activeBarter.offer || '');
+    setEditCambio(activeBarter.request || '');
+    setEditDescription(activeBarter.description || '');
+    setEditUnitId(activeBarter.unitId ? Number(activeBarter.unitId) : null);
+    setEditAmount(activeBarter.amount ? String(activeBarter.amount) : '');
+    setEditBarterModalVisible(true);
+  }, [activeBarter, items.length]);
+
+  const submitBarterEdit = async () => {
+    if (!activeBarter?.id) {
+      setEditBarterModalVisible(false);
+      return;
+    }
+
+    if (!selectedProductIdEdit || !selectedCambioIdEdit) {
+      Alert.alert('Datos incompletos', 'Selecciona el producto ofrecido y el solicitado.');
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        await handleUnauthorized();
+        return;
+      }
+
+      const parsedUnitId = editUnitId ? Number(editUnitId) : null;
+      const parsedAmount = editAmount ? Number(editAmount) : null;
+
+      // Actualizar en el backend
+      await api.put(`/barters/${activeBarter.id}`, {
+        offer_item_id: selectedProductIdEdit,
+        request_item_id: selectedCambioIdEdit,
+        description: editDescription,
+        unit_id: parsedUnitId,
+        amount: parsedAmount,
+      });
+
+      // Actualizar el estado local
+      const updatedBarter: ActiveBarterBanner = {
+        id: activeBarter.id,
+        offer: editProduct,
+        request: editCambio,
+        description: editDescription || null,
+        greenpointId: activeBarter.greenpointId,
+        amount: parsedAmount,
+        unitId: parsedUnitId,
+        unit: unitOptions.find((u) => u.id === parsedUnitId)?.label ?? null,
+      };
+
+      setActiveBarter(updatedBarter);
+      await AsyncStorage.setItem(barterStorageKey, JSON.stringify(updatedBarter));
+
+      Alert.alert('Listo', 'El intercambio ha sido modificado.');
+      setEditBarterModalVisible(false);
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
+      console.log('No se pudo modificar el trueque:', error);
+      Alert.alert('Error', 'No se pudo modificar el trueque. Intenta nuevamente.');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const unitOptions = [
+    { id: 1, label: 'Piezas' },
+    { id: 2, label: 'Kilos' },
+    { id: 3, label: 'Gramos' },
+  ];
 
   const handleShowBarterDetails = () => {
     if (!activeBarter) return;
@@ -746,10 +853,7 @@ export default function Chat({ route, navigation }: Props) {
               <>
                 <View className="rounded-full bg-white p-3 shadow-lg mb-3">
                   <TouchableOpacity
-                    onPress={() => {
-                      setMenuVisible(false);
-                      // TODO: Implement modify barter flow
-                    }}
+                    onPress={handleOpenEditBarterModal}
                     className="flex-row items-center p-2 ">
                     <Image
                       source={require('../../assets/form-icon.png')}
@@ -979,6 +1083,107 @@ export default function Chat({ route, navigation }: Props) {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={editBarterModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditBarterModalVisible(false)}>
+        <View
+          className="flex-1 items-center justify-center "
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+            <View className="w-[100%] max-w-md rounded-3xl bg-white p-6">
+              <Text className="text-center text-xl font-bold text-gray-900">Modificar Intercambio</Text>
+              
+              <Text className="mt-4 mb-1 text-lg font-semibold">Producto a cambiar</Text>
+              <View className="mb-4 rounded-full bg-gray-300">
+                <Picker
+                  selectedValue={selectedProductIdEdit}
+                  onValueChange={(val) => {
+                    setSelectedProductIdEdit(val as number | null);
+                    const item = items.find((i) => i.id === val);
+                    setEditProduct(item ? item.name : '');
+                  }}
+                  style={{ height: 50, width: '100%' }}>
+                  <Picker.Item label="Selecciona un producto..." value={null} />
+                  {items.map((it) => (
+                    <Picker.Item key={it.id} label={it.name} value={it.id} />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text className="mb-1 text-lg font-semibold">Unidad y cantidad</Text>
+              <View className="mb-4 flex-row items-center space-x-2">
+                <View className="flex-1 flex-row flex-wrap gap-2">
+                  {unitOptions.map((unit) => (
+                    <TouchableOpacity
+                      key={unit.id}
+                      className={`rounded-full px-4 py-2 ${editUnitId === unit.id ? 'bg-emerald-700' : 'bg-gray-300'}`}
+                      onPress={() => setEditUnitId(unit.id)}>
+                      <Text className={`text-sm font-semibold ${editUnitId === unit.id ? 'text-white' : 'text-black'}`}>
+                        {unit.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  className="w-24 rounded-full bg-gray-300 p-3 text-lg"
+                  placeholder="Cantidad"
+                  keyboardType="numeric"
+                  value={editAmount}
+                  onChangeText={setEditAmount}
+                />
+              </View>
+
+              <Text className="mb-1 text-lg font-semibold">Descripción</Text>
+              <TextInput
+                className="mb-4 rounded-full bg-gray-300 p-3 text-lg"
+                placeholder="Descripción del Intercambio"
+                value={editDescription}
+                onChangeText={setEditDescription}
+              />
+
+              <Text className="mb-1 text-lg font-semibold">Cambio por</Text>
+              <View className="mb-4 rounded-full bg-gray-300">
+                <Picker
+                  selectedValue={selectedCambioIdEdit}
+                  onValueChange={(val) => {
+                    setSelectedCambioIdEdit(val as number | null);
+                    const item = items.find((i) => i.id === val);
+                    setEditCambio(item ? item.name : '');
+                  }}
+                  style={{ height: 50, width: '100%' }}>
+                  <Picker.Item label="Selecciona un producto..." value={null} />
+                  {items.map((it) => (
+                    <Picker.Item key={`edit-${it.id}`} label={it.name} value={it.id} />
+                  ))}
+                </Picker>
+              </View>
+
+              <View className="mt-6 flex-row">
+                <TouchableOpacity
+                  onPress={() => setEditBarterModalVisible(false)}
+                  className="mr-3 flex-1 rounded-2xl border border-gray-300 py-3"
+                  activeOpacity={0.8}>
+                  <Text className="text-center font-semibold text-gray-800">Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={submitBarterEdit}
+                  className={`flex-1 rounded-2xl bg-emerald-700 py-3 ${
+                    isSubmittingEdit ? 'opacity-60' : ''
+                  }`}
+                  disabled={isSubmittingEdit}
+                  activeOpacity={0.8}>
+                  <Text className="text-center font-semibold text-white">
+                    {isSubmittingEdit ? 'Guardando...' : 'Guardar cambios'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
