@@ -19,6 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from 'context/UserContext';
 import api from 'services/api';
+import { Icon } from 'react-native-paper';
 
 type ActiveBarterBanner = {
   id: number | string;
@@ -92,6 +93,7 @@ export default function Chat({ route, navigation }: Props) {
   const [counterpartRating, setCounterpartRating] = useState(0);
   const [isSubmittingCounterpartRating, setIsSubmittingCounterpartRating] = useState(false);
   const [units, setUnits] = useState<{ id: number; name: string }[]>([]);
+  const [isCancellingBarter, setIsCancellingBarter] = useState(false);
 
   const handleUnauthorized = async () => {
     await AsyncStorage.removeItem('userToken');
@@ -352,6 +354,39 @@ export default function Chat({ route, navigation }: Props) {
     }
     setActiveBarter(null);
   }, [barterStorageKey]);
+
+  const handleCancelBarter = useCallback(async () => {
+    if (!activeBarter?.id) {
+      await clearActiveBarter();
+      return;
+    }
+
+    setIsCancellingBarter(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        await handleUnauthorized();
+        return;
+      }
+
+      // Marcar el trueque como cancelado en el backend (status_id = 3)
+      await api.put(`/barters/${activeBarter.id}`, { status_id: 3 });
+
+      // Limpiar storage/local state y ocultar bloque
+      await clearActiveBarter();
+      Alert.alert('Listo', 'El trueque ha sido cancelado.');
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        await handleUnauthorized();
+        return;
+      }
+      console.log('No se pudo cancelar el trueque:', error);
+      Alert.alert('Error', 'No se pudo cancelar el trueque. Intenta nuevamente.');
+    } finally {
+      setIsCancellingBarter(false);
+      setMenuVisible(false);
+    }
+  }, [activeBarter, clearActiveBarter, handleUnauthorized]);
 
   const handleShowBarterDetails = () => {
     if (!activeBarter) return;
@@ -707,29 +742,71 @@ export default function Chat({ route, navigation }: Props) {
           ]}
           className="w-58 absolute p-6">
           {isOfferUser && (
-            <View className="rounded-full bg-white p-3 shadow-lg">
-              <TouchableOpacity
-                onPress={() => {
-                  if (conversation && conversation.post_id) {
-                    navigation.navigate('BarterScreen', {
-                      conversationId,
-                      postId: conversation.post_id,
-                    });
-                  }
-                }}
-                className="flex-row items-center p-2 ">
-                <Image
-                  source={require('../../assets/form-icon.png')}
-                  className="h-6 w-6"
-                  resizeMode="contain"
-                />
-                <Text
-                  className="ml-4 text-lg font-extrabold text-black"
-                  style={{ fontFamily: 'Poppins-Black' }}>
-                  Solicitar intercambio
-                </Text>
-              </TouchableOpacity>
-            </View>
+            activeBarter ? (
+              <>
+                <View className="rounded-full bg-white p-3 shadow-lg mb-3">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setMenuVisible(false);
+                      // TODO: Implement modify barter flow
+                    }}
+                    className="flex-row items-center p-2 ">
+                    <Image
+                      source={require('../../assets/form-icon.png')}
+                      className="h-6 w-6"
+                      resizeMode="contain"
+                    />
+                    <Text
+                      className="ml-4 text-lg font-extrabold text-black"
+                      style={{ fontFamily: 'Poppins-Black' }}>
+                      Modificar Intercambio
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View className="rounded-full bg-white p-3 shadow-lg">
+                  <TouchableOpacity
+                    onPress={handleCancelBarter}
+                    className="flex-row items-center p-2 "
+                    disabled={isCancellingBarter}
+                    activeOpacity={0.8}>
+                    <Image
+                      source={require('../../assets/form-icon.png')}
+                      className="h-6 w-6"
+                      resizeMode="contain"
+                    />
+                    <Text
+                      className="ml-4 text-lg font-extrabold text-black"
+                      style={{ fontFamily: 'Poppins-Black' }}>
+                      {isCancellingBarter ? 'Cancelando...' : 'Cancelar Intercambio'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <View className="rounded-full bg-white p-3 shadow-lg">
+                <TouchableOpacity
+                  onPress={() => {
+                    if (conversation && conversation.post_id) {
+                      navigation.navigate('BarterScreen', {
+                        conversationId,
+                        postId: conversation.post_id,
+                      });
+                    }
+                  }}
+                  className="flex-row items-center p-2 ">
+                  <Image
+                    source={require('../../assets/plus-icon.png')}
+                    className="h-6 w-6"
+                    resizeMode="contain"
+                  />
+                  <Text
+                    className="ml-4 text-lg font-extrabold text-black"
+                    style={{ fontFamily: 'Poppins-Black' }}>
+                    Solicitar intercambio
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )
           )}
 
           {!isOfferUser && conversation && conversation.post_id && (
