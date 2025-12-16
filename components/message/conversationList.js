@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Pressable,
+  IconButton,
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -225,12 +227,18 @@ const ConversationsList = () => {
           navigation.navigate('Chat', { conversationId: item.id });
         }}
       >
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {otherUser?.name?.[0]}
-            {otherUser?.lastname?.[0]}
-          </Text>
-        </View>
+  <Pressable
+    onPress={(e) => {
+      e.stopPropagation();
+      navigation.navigate('PublicProfile', { userId: otherUser?.id });
+    }}
+    style={styles.avatarContainer}
+  >
+    <Text style={styles.avatarText}>
+      {otherUser?.name?.[0]}
+      {otherUser?.lastname?.[0]}
+    </Text>
+  </Pressable>
 
         <View style={styles.textContainer}>
           <View style={styles.headerRow}>
