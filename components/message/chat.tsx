@@ -202,6 +202,14 @@ export default function Chat({ route, navigation }: Props) {
     [conversation, user, ratedBarterKey, pendingRatingStorageKey, pendingRating]
   );
 
+  const [blockNewBarter, setBlockNewBarter] = useState<{
+  type: 'barter' | 'rating';
+  conversationId: number | string;
+} | null>(null);
+
+const [blockModalVisible, setBlockModalVisible] = useState(false);
+
+
   const fetchMessages = async (conversationId: number) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -719,6 +727,33 @@ export default function Chat({ route, navigation }: Props) {
     }
   }, [navigation]);
 
+  // Nueva función: consulta al backend si hay trueque activo o calificación pendiente
+  const checkGlobalPendingActions = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        await handleUnauthorized();
+        return false;
+      }
+      // Llama al endpoint del backend
+      const { data } = await api.get('/barter/status');
+      if (data.has_active_barter && data.active_barter_id) {
+        setBlockNewBarter({ type: 'barter', conversationId: data.active_barter_id });
+        return true;
+      }
+      if (data.has_pending_rating && data.pending_rating_id) {
+        setBlockNewBarter({ type: 'rating', conversationId: data.pending_rating_id });
+        return true;
+      }
+      setBlockNewBarter(null);
+      return false;
+    } catch (e) {
+      console.log('Error revisando acciones pendientes (backend)', e);
+      return false;
+    }
+  }, [conversationId, handleUnauthorized]);
+
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -735,6 +770,57 @@ export default function Chat({ route, navigation }: Props) {
               resizeMode="contain"
             />
           </TouchableOpacity>
+          <Modal
+  visible={blockModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setBlockModalVisible(false)}
+>
+  <View
+    className="flex-1 items-center justify-center px-6"
+    style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+  >
+    <View className="w-full rounded-3xl bg-white p-6">
+      <Text className="text-xl font-bold text-center text-gray-900">
+        Acción pendiente
+      </Text>
+
+      <Text className="mt-3 text-center text-gray-700">
+        {blockNewBarter?.type === 'barter'
+          ? 'Tienes un intercambio activo en otra conversación.'
+          : 'Tienes una calificación pendiente en otra conversación.'}
+      </Text>
+
+      <Text className="mt-2 text-center text-gray-600">
+        Finaliza esa acción antes de crear un nuevo intercambio.
+      </Text>
+
+      <View className="mt-6 flex-row">
+        <TouchableOpacity
+          className="flex-1 rounded-2xl bg-gray-300 py-3 mr-2"
+          onPress={() => setBlockModalVisible(false)}
+        >
+          <Text className="text-center font-semibold text-gray-800">
+            Entendido
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="flex-1 rounded-2xl bg-emerald-700 py-3"
+          onPress={() => {
+            setBlockModalVisible(false);
+            navigation.navigate('HistoryChat');
+          }}
+        >
+          <Text className="text-center font-semibold text-white">
+            Ir a conversaciones
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
           <View className="ml-4 flex-1 flex-row items-center rounded-xl p-2">
             <TouchableOpacity
               className="flex-row items-center flex-1"
@@ -889,7 +975,12 @@ export default function Chat({ route, navigation }: Props) {
             ) : (
               <View className="rounded-full bg-white p-3 shadow-lg">
                 <TouchableOpacity
-                  onPress={() => {
+                  onPress={async () => {
+                    const blocked = await checkGlobalPendingActions();
+                    if (blocked) {
+                      setBlockModalVisible(true);
+                      return;
+                    }
                     if (conversation && conversation.post_id) {
                       navigation.navigate('BarterScreen', {
                         conversationId,

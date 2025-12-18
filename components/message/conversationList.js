@@ -21,6 +21,14 @@ const FINISHED_BARTER_PREFIX = '__TRUEQUE_FINALIZADO__';
 const SEEN_STORAGE_KEY = 'seen_conversations';
 
 const getNotificationLabel = (conversation) => {
+  // Sistema de notificaciones mejorado
+  const newNotifications = conversation?.notifications;
+  if (newNotifications) {
+    if (newNotifications.has_pending_rating) return 'Calificación pendiente';
+    if (newNotifications.has_trade_established) return 'Trueque establecido';
+    if (newNotifications.has_new_message) return 'Mensaje nuevo';
+  }
+
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   const lastSeenAtMs = conversation?.lastSeenAt
     ? new Date(conversation.lastSeenAt).getTime()
@@ -47,6 +55,19 @@ const getNotificationLabel = (conversation) => {
   const hasNewSinceSeen =
     lastSeenAtMs !== null && lastMessageMs !== null ? lastMessageMs > lastSeenAtMs : false;
 
+  // Calificación pendiente: buscar mensaje especial o bandera
+  const hasPendingRating = messages.some(
+    (msg) =>
+      typeof msg?.content === 'string' &&
+      msg.content.startsWith(FINISHED_BARTER_PREFIX) &&
+      // Si quieres más lógica, puedes agregar aquí
+      true
+  ) || conversation?.has_pending_rating;
+  if (hasPendingRating) {
+    return 'Calificación pendiente';
+  }
+
+  // Trueque finalizado
   const hasFinishedBarter = messages.some(
     (msg) => typeof msg?.content === 'string' && msg.content.startsWith(FINISHED_BARTER_PREFIX)
   );
@@ -54,6 +75,7 @@ const getNotificationLabel = (conversation) => {
     return 'Trueque finalizado';
   }
 
+  // Trueque activo
   const barterStatus =
     conversation?.barter_status_id ??
     conversation?.barter_status ??
@@ -62,6 +84,7 @@ const getNotificationLabel = (conversation) => {
     return 'Trueque establecido';
   }
 
+  // Mensajes no leídos
   const unreadCount =
     conversation?.unread_messages_count ??
     conversation?.unread_count ??
