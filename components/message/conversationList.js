@@ -16,52 +16,29 @@ import { useFonts } from 'expo-font';
 import moment from 'moment'; // Ejecuta: npm install moment
 import api from '../../services/api';
 import { useUser } from '../../context/UserContext';
+import { useConversationContext } from '../../context/ConversationContext';
 
 const FINISHED_BARTER_PREFIX = '__TRUEQUE_FINALIZADO__';
-const SEEN_STORAGE_KEY = 'seen_conversations';
 
 const getNotificationLabel = (conversation) => {
-  // Sistema de notificaciones mejorado
+  // Sistema de notificaciones mejorado - usando datos del backend como fuente principal
+  const isNew = conversation?.is_new;
+  const isUnreadFromBackend = conversation?.is_unread;
+  
+  // Notificaciones del backend (prioridad alta)
   const newNotifications = conversation?.notifications;
   if (newNotifications) {
     if (newNotifications.has_pending_rating) return 'Calificación pendiente';
     if (newNotifications.has_trade_established) return 'Trueque establecido';
-    if (newNotifications.has_new_message) return 'Mensaje nuevo';
   }
 
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
-  const lastSeenAtMs = conversation?.lastSeenAt
-    ? new Date(conversation.lastSeenAt).getTime()
-    : null;
-
-  const getTimestamp = (value) => {
-    if (value === null || value === undefined) return null;
-    if (typeof value === 'number') {
-      const num = value > 1e12 ? value : value * 1000; // segundos o ms
-      return Number.isFinite(num) ? num : null;
-    }
-    const date = new Date(value);
-    return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : null;
-  };
-
-  const lastMessageMs =
-    getTimestamp(conversation?.last_message?.created_at) ||
-    getTimestamp(conversation?.last_message_at) ||
-    getTimestamp(conversation?.updated_at) ||
-    getTimestamp(messages[0]?.created_at) ||
-    getTimestamp(messages[messages.length - 1]?.created_at) ||
-    null;
-
-  const hasNewSinceSeen =
-    lastSeenAtMs !== null && lastMessageMs !== null ? lastMessageMs > lastSeenAtMs : false;
 
   // Calificación pendiente: buscar mensaje especial o bandera
   const hasPendingRating = messages.some(
     (msg) =>
       typeof msg?.content === 'string' &&
-      msg.content.startsWith(FINISHED_BARTER_PREFIX) &&
-      // Si quieres más lógica, puedes agregar aquí
-      true
+      msg.content.startsWith(FINISHED_BARTER_PREFIX)
   ) || conversation?.has_pending_rating;
   if (hasPendingRating) {
     return 'Calificación pendiente';
@@ -84,26 +61,13 @@ const getNotificationLabel = (conversation) => {
     return 'Trueque establecido';
   }
 
-  // Mensajes no leídos
-  const unreadCount =
-    conversation?.unread_messages_count ??
-    conversation?.unread_count ??
-    conversation?.unreadMessages ??
-    conversation?.unread_messages ??
-    conversation?.new_messages_count ??
-    conversation?.unseen_count ??
-    0;
-
-  const hasUnread =
-    hasNewSinceSeen ||
-    unreadCount > 0 ||
-    (lastSeenAtMs === null && messages.length > 0);
-
-  if (!messages.length && lastSeenAtMs === null) {
+  // Nueva conversación: nunca vista por ningún usuario y tiene contenido
+  if (isNew && (messages.length > 0 || isUnreadFromBackend)) {
     return 'Nueva conversacion';
   }
 
-  if (hasUnread) {
+  // Mostrar "Mensaje nuevo" si el backend dice que hay unread
+  if (isUnreadFromBackend) {
     return 'Mensaje nuevo';
   }
 
@@ -114,10 +78,10 @@ const ConversationsList = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [seenConversations, setSeenConversations] = useState({});
   const [authAlertShown, setAuthAlertShown] = useState(false);
   const navigation = useNavigation();
   const { user } = useUser();
+  const { subscribeToRatingChange } = useConversationContext();
 
   const [fontsLoaded] = useFonts({
     'Poppins-Regular': require('../../assets/fonts/Poppins-Regular.ttf'),
@@ -160,6 +124,14 @@ const ConversationsList = () => {
     }
   }, [user]);
 
+  // Escuchar cuando se califica en otra pantalla para refrescar
+  useEffect(() => {
+    const unsubscribe = subscribeToRatingChange(() => {
+      refreshConversations();
+    });
+    return unsubscribe;
+  }, [subscribeToRatingChange]);
+
   const fetchConversations = useCallback(async () => {
     if (!user) {
       handleNoSession();
@@ -194,29 +166,56 @@ const ConversationsList = () => {
     }
   }, [handleNoSession, navigation, user]);
 
-  useEffect(() => {
-    AsyncStorage.getItem(SEEN_STORAGE_KEY)
-      .then((stored) => {
-        if (stored) {
-          setSeenConversations(JSON.parse(stored));
-        }
+  const markConversationSeen = useCallback((conversationId) => {
+    // Sincronizar con el backend
+    api.post(`/conversations/${conversationId}/mark-as-viewed`)
+      .then(() => {
+        // Actualizar estado local después de confirmación
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === conversationId
+              ? { ...conv, is_new: false, is_unread: false }
+              : conv
+          )
+        );
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Error al marcar conversación como vista:', err);
+      });
   }, []);
 
-  const markConversationSeen = useCallback((conversationId) => {
-    setSeenConversations((prev) => {
-      const next = { ...prev, [conversationId]: new Date().toISOString() };
-      AsyncStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, []);
+  // Función para recargar conversaciones desde el backend
+  const refreshConversations = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      const response = await api.get('/conversations');
+      const items = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+      setConversations(items);
+    } catch (err) {
+      console.error('Error al refrescar conversaciones:', err);
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
       fetchConversations();
-      return () => {};
-    }, [fetchConversations])
+      
+      // Refrescar conversaciones cada 5 segundos para detectar cambios
+      // (ej: cuando el otro usuario califica)
+      const refreshInterval = setInterval(() => {
+        refreshConversations();
+      }, 5000);
+      
+      return () => clearInterval(refreshInterval);
+    }, [fetchConversations, refreshConversations])
   );
 
   const renderConversationItem = ({ item }) => {
@@ -237,10 +236,7 @@ const ConversationsList = () => {
       ? `${otherUser?.name || ''} ${otherUser?.lastname || ''}`.trim()
       : '';
     const counterpartName = rawName || 'Usuario desconocido';
-    const notificationLabel = getNotificationLabel({
-      ...item,
-      lastSeenAt: seenConversations?.[item.id] || null,
-    });
+    const notificationLabel = getNotificationLabel(item);
 
     return (
       <TouchableOpacity

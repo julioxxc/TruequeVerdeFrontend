@@ -230,7 +230,7 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
       const coordsToSend = confirmedLocation || selectedLocation || location;
 
       const response = await axios.post(
-        'http://192.168.1.72:8000/api/barters',
+        'http://10.138.7.233:8000/api/barters',
         {
           post_id: postId,
           description: descripcion,
@@ -282,6 +282,18 @@ const FormularioIntercambio: React.FC<FormularioProps> = ({ route, navigation })
           data: error.response?.data,
           headers: error.response?.headers,
         });
+        
+        // ✅ Manejo específico del error 409 (Conflict)
+        if (error.response?.status === 409) {
+          Alert.alert(
+            'Acción bloqueada',
+            'Ya tienes un intercambio activo. Finaliza o cancela el anterior antes de crear uno nuevo.',
+            [
+              { text: 'Entendido', onPress: () => navigation.goBack() }
+            ]
+          );
+          return;
+        }
       } else {
         console.error('Unknown error:', error);
       }

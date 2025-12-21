@@ -19,6 +19,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from 'context/UserContext';
+import { useConversationContext } from 'context/ConversationContext';
 import api from 'services/api';
 import { Icon } from 'react-native-paper';
 
@@ -71,6 +72,7 @@ export default function Chat({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const { onRatingSubmitted } = useConversationContext();
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
@@ -578,6 +580,13 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
       await api.put(`/barters/${activeBarter.id}`, { status_id: 2, rating: selectedRating });
       await notifyCounterpartBarterFinished(activeBarter);
       await clearActiveBarter();
+      
+      // ✅ Limpiar bloqueos verificando con el backend
+      await checkGlobalPendingActions();
+      
+      // ✅ Notificar al contexto para refrescar la lista de conversaciones
+      onRatingSubmitted();
+      
       Alert.alert('Listo', 'El trueque se marcó como finalizado.');
     } catch (finishError) {
       console.log('No se pudo finalizar el trueque:', finishError);
@@ -610,7 +619,19 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
       });
       await AsyncStorage.setItem(ratedKey, 'done');
       await clearPendingRatingData();
+      
+      // ✅ Limpiar bloqueos verificando con el backend
+      await checkGlobalPendingActions();
+      
+      // ✅ Notificar al contexto para refrescar la lista de conversaciones
+      onRatingSubmitted();
+      
       Alert.alert('Gracias', 'Tu calificacion se envio.');
+      
+      // ✅ Volver a la lista de conversaciones después de 1 segundo
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1000);
     } catch (error: any) {
       if (error?.response?.status === 401) {
         await handleUnauthorized();
@@ -626,7 +647,19 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
         });
         await AsyncStorage.setItem(ratedKey, 'done');
         await clearPendingRatingData();
+        
+        // ✅ Limpiar bloqueos verificando con el backend
+        await checkGlobalPendingActions();
+        
+        // ✅ Notificar al contexto para refrescar la lista de conversaciones
+        onRatingSubmitted();
+        
         Alert.alert('Gracias', 'Tu calificacion se envio.');
+        
+        // ✅ Volver a la lista de conversaciones después de 1 segundo
+        setTimeout(() => {
+          navigation.goBack();
+        }, 1000);
       } catch (surveyError) {
         console.log('No se pudo enviar la calificacion via encuesta:', surveyError);
         Alert.alert('Error', 'No se pudo guardar tu calificacion. Intenta nuevamente.');
@@ -694,10 +727,22 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
       fetchConversation(conversationId);
       fetchMessages(conversationId);
       loadActiveBarter();
-       loadPendingCounterpartRating();
-      const interval = setInterval(() => fetchMessages(conversationId), 2000);
-      return () => clearInterval(interval);
-    }, [conversationId, loadActiveBarter, loadPendingCounterpartRating])
+      loadPendingCounterpartRating();
+      checkGlobalPendingActions(); // ✅ Verificar al entrar
+      
+      // ✅ Polling: Verificar estado de bloqueos cada 3 segundos
+      const blockCheckInterval = setInterval(() => {
+        checkGlobalPendingActions();
+      }, 3000);
+      
+      // Polling: Cargar mensajes cada 2 segundos
+      const messagesInterval = setInterval(() => fetchMessages(conversationId), 2000);
+      
+      return () => {
+        clearInterval(blockCheckInterval);
+        clearInterval(messagesInterval);
+      };
+    }, [conversationId, loadActiveBarter, loadPendingCounterpartRating, checkGlobalPendingActions])
   );
 
   const isOfferUser =
@@ -737,21 +782,29 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
       }
       // Llama al endpoint del backend
       const { data } = await api.get('/barter/status');
+      
+      // ✅ Si hay un trueque activo
       if (data.has_active_barter && data.active_barter_id) {
         setBlockNewBarter({ type: 'barter', conversationId: data.active_barter_id });
         return true;
       }
+      
+      // ✅ Si hay una calificación pendiente
       if (data.has_pending_rating && data.pending_rating_id) {
         setBlockNewBarter({ type: 'rating', conversationId: data.pending_rating_id });
         return true;
       }
+      
+      // ✅ No hay bloqueos
       setBlockNewBarter(null);
       return false;
     } catch (e) {
       console.log('Error revisando acciones pendientes (backend)', e);
-      return false;
+      // ✅ En caso de error, mantener el bloqueo anterior para mayor seguridad
+      // No retornar false que permitiría crear trueque
+      return blockNewBarter !== null;
     }
-  }, [conversationId, handleUnauthorized]);
+  }, [blockNewBarter, handleUnauthorized]);
 
 
   return (
@@ -988,7 +1041,8 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
                       });
                     }
                   }}
-                  className="flex-row items-center p-2 ">
+                  className="flex-row items-center p-2"
+                  activeOpacity={0.7}>
                   <Image
                     source={require('../../assets/plus-icon.png')}
                     className="h-6 w-6"
@@ -997,7 +1051,7 @@ const [blockModalVisible, setBlockModalVisible] = useState(false);
                   <Text
                     className="ml-4 text-lg font-extrabold text-black"
                     style={{ fontFamily: 'Poppins-Black' }}>
-                    Solicitar intercambio
+                    {blockNewBarter !== null ? 'Acción pendiente' : 'Solicitar intercambio'}
                   </Text>
                 </TouchableOpacity>
               </View>

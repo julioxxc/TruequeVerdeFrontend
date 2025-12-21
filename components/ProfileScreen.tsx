@@ -209,7 +209,7 @@ const HomeScreen = ({ navigation }) => {
               // Si la imagen ya es una URL completa, úsala. Si no, prepéndele la ruta base.
               const imageUrl = item.image?.startsWith('http')
                 ? item.image
-                : `http://192.168.1.72:8000/storage/posts/${item.image}`;
+                : `http://10.138.7.233:8000/storage/posts/${item.image}`;
 
               return (
                 <View style={styles.postCard}>

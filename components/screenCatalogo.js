@@ -42,7 +42,7 @@ const App = ({ route }) => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('http://192.168.1.72:8000/api/posts');
+      const response = await axios.get('http://10.138.7.233:8000/api/posts');
       // Asegurarnos de que `products` sea siempre un array.
       // La API puede devolver un objeto con datos en una propiedad (p. ej. { data: [...] })
       // o directamente un array. Normalizamos ambos casos.

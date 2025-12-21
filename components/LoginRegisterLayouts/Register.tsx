@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Platform, Pressable, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Platform, Pressable, KeyboardAvoidingView, ActivityIndicator, Modal } from 'react-native';
 import { TextInput, Button, RadioButton } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import RegisterStyles from 'components/stylesheet/RegisterStylesheet';
@@ -22,6 +22,7 @@ type RootStackParamList = {
 
 export default function RegisterScreen() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Fecha de nacimiento
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
@@ -140,6 +141,7 @@ const validateForm = () => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
+    setIsLoading(true);
     try {
       console.log('Datos a enviar:', form); // <-- Agrega esto para depurar
       const response = await api.post('/register', {
@@ -169,8 +171,10 @@ const validateForm = () => {
       });
 
       console.log('Registro exitoso:', response.data);
+      setIsLoading(false);
       navigation.navigate('Login');
     } catch (error: any) {
+      setIsLoading(false);
       if (error.response?.status === 422) {
         handleLaravelErrors(error.response.data.errors);
       } else {
@@ -180,12 +184,21 @@ const validateForm = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={110}
-    >
-      <ScrollView contentContainerStyle={RegisterStyles.container}>
+    <>
+      <Modal visible={isLoading} transparent={true} animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'white', padding: 30, borderRadius: 10, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#388E3C" style={{ marginBottom: 16 }} />
+            <Text>Verificando Datos...</Text>
+          </View>
+        </View>
+      </Modal>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={110}
+      >
+        <ScrollView contentContainerStyle={RegisterStyles.container}>
         <View style={RegisterStyles.formContainer}>
         <Image source={require('../images/logocorregido.png')} style={RegisterStyles.logoImage} resizeMode="contain" />
         <Text style={RegisterStyles.title}>CREA UNA CUENTA</Text>
@@ -344,5 +357,6 @@ const validateForm = () => {
       </View>
     </ScrollView>
     </KeyboardAvoidingView>
+    </>
   );
 }

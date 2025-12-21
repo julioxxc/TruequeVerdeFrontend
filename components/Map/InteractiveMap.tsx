@@ -93,7 +93,7 @@ export default function MapScreen() {
 
   const fetchGreenpoints = async () => {
     try {
-      const response = await fetch('http://192.168.1.72:8000/api/map/all');
+      const response = await fetch('http://10.138.7.233:8000/api/map/all');
       const data = await response.json();
 
       const postsRounded = (data.posts || []).map((post: any) => ({
